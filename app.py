@@ -7,29 +7,39 @@ st.set_page_config(page_title="PrecisionPK | Clinical Dosing", layout="wide", pa
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    .reportview-container { background-color: #f8fafc; }
+    
     .main .block-container { padding-top: 2rem; padding-bottom: 2rem; max-width: 1100px; }
-    h1, h2, h3, h4 { color: #0f172a; font-family: 'Inter', sans-serif; }
-    .stMetric {
-        background-color: #ffffff; padding: 20px; border-radius: 12px;
+    h1, h2, h3, h4 { font-family: 'Inter', sans-serif; color: var(--text-color); }
+    
+    /* Metrics */
+    div[data-testid="stMetric"], .stMetric {
+        background-color: var(--secondary-background-color) !important;
+        padding: 20px; border-radius: 12px;
         box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
         border-top: 4px solid #0ea5e9;
     }
-    .stMetric:hover { transform: translateY(-2px); transition: transform 0.2s ease; }
+    div[data-testid="stMetric"]:hover, .stMetric:hover { transform: translateY(-2px); transition: transform 0.2s ease; }
+    
+    /* Alerts using semi-transparent backgrounds to work on both themes */
     .alert-box {
         padding: 20px; border-radius: 12px; margin-bottom: 24px;
         border-left: 6px solid; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
     }
-    .alert-info { background-color: #f0f9ff; border-color: #0284c7; color: #0c4a6e; }
-    .alert-success { background-color: #f0fdf4; border-color: #16a34a; color: #14532d; }
-    .alert-warning { background-color: #fffbeb; border-color: #d97706; color: #78350f; }
-    .alert-danger { background-color: #fef2f2; border-color: #dc2626; color: #7f1d1d; }
+    .alert-info { background-color: rgba(2, 132, 199, 0.1); border-color: #0284c7; color: var(--text-color); }
+    .alert-success { background-color: rgba(22, 163, 74, 0.1); border-color: #16a34a; color: var(--text-color); }
+    .alert-warning { background-color: rgba(217, 119, 6, 0.1); border-color: #d97706; color: var(--text-color); }
+    .alert-danger { background-color: rgba(220, 38, 38, 0.1); border-color: #dc2626; color: var(--text-color); }
+    
+    /* Buttons */
     .stButton>button {
-        font-weight: 600; border-radius: 8px; transition: all 0.2s; border: 1px solid #cbd5e1;
+        font-weight: 600; border-radius: 8px; transition: all 0.2s;
+        border: 1px solid var(--text-color); opacity: 0.8;
     }
     .stButton>button:hover {
-        transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-color: #94a3b8;
+        transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); opacity: 1;
     }
+    
+    /* Headers */
     .primary-header {
         background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
         color: #f8fafc !important; padding: 40px 30px; border-radius: 16px;
@@ -37,7 +47,10 @@ st.markdown("""
     }
     .primary-header h1 { color: #f8fafc !important; margin: 0; font-size: 2.8rem; letter-spacing: -0.02em; }
     .primary-header p { color: #cbd5e1; margin-top: 10px; font-size: 1.1rem; font-weight: 400; }
+    
     div[data-testid="stSidebarNav"] { display: none; }
+    
+    /* Section Headers */
     .analysis-header {
         background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
         color: white !important; padding: 14px 20px; border-radius: 10px;
@@ -56,45 +69,26 @@ st.markdown("""
         margin: 24px 0 16px 0; text-align: center; font-weight: 700; font-size: 1.15rem;
         letter-spacing: 0.03em; box-shadow: 0 4px 12px rgba(239,68,68,0.3);
     }
+    
+    /* Badges */
     .bmi-badge {
         display: inline-block; padding: 4px 14px; border-radius: 20px;
         font-weight: 600; font-size: 0.9rem; margin-left: 8px;
     }
-    .bmi-underweight { background: #dbeafe; color: #1e40af; }
-    .bmi-normal { background: #dcfce7; color: #166534; }
-    .bmi-overweight { background: #fef9c3; color: #854d0e; }
-    .bmi-obese { background: #fee2e2; color: #991b1b; }
+    .bmi-underweight { background: rgba(30, 64, 175, 0.2); color: #60a5fa; }
+    .bmi-normal { background: rgba(22, 101, 52, 0.2); color: #4ade80; }
+    .bmi-overweight { background: rgba(133, 77, 14, 0.2); color: #facc15; }
+    .bmi-obese { background: rgba(153, 27, 27, 0.2); color: #f87171; }
     
-    @media (prefers-color-scheme: dark) {
-        .reportview-container { background-color: #0e1117; }
-        h1, h2, h3, h4 { color: #f8fafc; }
-        .stMetric { background-color: #1e293b; border-top: 4px solid #38bdf8; }
-        
-        .alert-info { background-color: #0c4a6e; color: #e0f2fe; }
-        .alert-success { background-color: #14532d; color: #dcfce7; }
-        .alert-warning { background-color: #78350f; color: #fef3c7; }
-        .alert-danger { background-color: #7f1d1d; color: #fee2e2; }
-        
-        .primary-header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); }
-        .primary-header p { color: #94a3b8; }
-        
-        .stButton>button { border-color: #475569; background-color: #1e293b; color: #f8fafc; }
-        .stButton>button:hover { border-color: #64748b; background-color: #334155; }
-        
-        .bmi-underweight { background: #1e3a8a; color: #bfdbfe; }
-        .bmi-normal { background: #14532d; color: #bbf7d0; }
-        .bmi-overweight { background: #713f12; color: #fef08a; }
-        .bmi-obese { background: #7f1d1d; color: #fecaca; }
-        
-        .selected-eq-box {
-            background-color: #0c4a6e !important;
-            border-left: 4px solid #38bdf8 !important;
-        }
-        .selected-eq-box .eq-title { color: #f8fafc !important; }
-        .selected-eq-box .eq-name { color: #7dd3fc !important; }
-        .selected-eq-box .eq-reason { color: #cbd5e1 !important; }
-        .selected-eq-box .eq-value { color: #38bdf8 !important; }
+    /* Selected Equation Box */
+    .selected-eq-box {
+        background-color: var(--secondary-background-color) !important;
+        border-left: 4px solid #0ea5e9 !important;
     }
+    .selected-eq-box .eq-title { color: var(--text-color) !important; }
+    .selected-eq-box .eq-name { color: #0ea5e9 !important; }
+    .selected-eq-box .eq-reason { color: var(--text-color) !important; opacity: 0.8; }
+    .selected-eq-box .eq-value { color: #0ea5e9 !important; }
 </style>
 """, unsafe_allow_html=True)
 
