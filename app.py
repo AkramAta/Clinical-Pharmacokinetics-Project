@@ -247,80 +247,12 @@ with tab_setup:
 
 
 
-                st.markdown("""
-<style>
-.input-row-combined {
-    display: flex;
-    gap: 2px;
-    align-items: center;
-    margin-bottom: 0.5rem;
-    flex-wrap: nowrap;
-}
-.input-row-combined label {
-    min-width: 36px;
-    font-weight: 500;
-    margin-right: 2px;
-    font-size: 0.95em;
-}
-.input-row-combined input, .input-row-combined select {
-    font-size: 0.95em;
-    padding: 2px 4px;
-    border-radius: 4px;
-    border: 1px solid #ccc;
-    width: 48px;
-    max-width: 54px;
-    min-width: 0;
-}
-@media (max-width: 600px) {
-    .input-row-combined {
-        flex-wrap: nowrap !important;
-        gap: 1px;
-    }
-    .input-row-combined input, .input-row-combined select {
-        width: 38px;
-        max-width: 44px;
-        font-size: 0.9em;
-        padding: 1px 2px;
-    }
-}
-</style>
-""", unsafe_allow_html=True)
-
-                st.markdown("""
-<div class="input-row-combined">
-    <label for="height_input">Height</label>
-    <input type="number" id="height_input" name="height_input" min="0" step="0.01" value="{0}" onchange="window.parent.postMessage({{isStreamlitMessage: true, type: 'streamlit:setComponentValue', key: 'height_input', value: this.value}}, '*')">
-    <select id="height_unit" name="height_unit" onchange="window.parent.postMessage({{isStreamlitMessage: true, type: 'streamlit:setComponentValue', key: 'height_unit', value: this.value}}, '*')">
-        <option value="Centimeters" {1}>Centimeters</option>
-        <option value="Inches" {2}>Inches</option>
-    </select>
-    <label for="weight_input" style="margin-left:18px;">Weight</label>
-    <input type="number" id="weight_input" name="weight_input" min="0" step="0.01" value="{3}" onchange="window.parent.postMessage({{isStreamlitMessage: true, type: 'streamlit:setComponentValue', key: 'weight_input', value: this.value}}, '*')">
-    <select id="weight_unit" name="weight_unit" onchange="window.parent.postMessage({{isStreamlitMessage: true, type: 'streamlit:setComponentValue', key: 'weight_unit', value: this.value}}, '*')">
-        <option value="Kilograms" {4}>Kilograms</option>
-        <option value="Pounds" {5}>Pounds</option>
-    </select>
-</div>
-""".format(
-        st.session_state.get('height_input', 170.0),
-        'selected' if st.session_state.get('height_unit', 'Centimeters') == 'Centimeters' else '',
-        'selected' if st.session_state.get('height_unit', 'Centimeters') == 'Inches' else '',
-        st.session_state.get('weight_input', 80.0),
-        'selected' if st.session_state.get('weight_unit', 'Kilograms') == 'Kilograms' else '',
-        'selected' if st.session_state.get('weight_unit', 'Kilograms') == 'Pounds' else ''
-), unsafe_allow_html=True)
-
-                # Parse values from session_state
-                try:
-                        height_input = float(st.session_state.get('height_input', 170.0))
-                except Exception:
-                        height_input = 170.0
-                height_unit = st.session_state.get('height_unit', 'Centimeters')
-                try:
-                        weight_input = float(st.session_state.get('weight_input', 80.0))
-                except Exception:
-                        weight_input = 80.0
-                weight_unit = st.session_state.get('weight_unit', 'Kilograms')
+        r1, r2 = st.columns(2)
+        r1.metric("CG — Actual Body Weight", f"{crcl_abw:.1f} mL/min")
+        r2.metric("CG — Ideal Body Weight", f"{crcl_ibw:.1f} mL/min")
+        r3, r4 = st.columns(2)
+        r3.metric("Jelliffe", f"{crcl_jelliffe:.1f} mL/min")
+        r4.metric("MDRD (eGFR)", f"{egfr_mdrd:.1f} mL/min/1.73 m²")
     # ===== OBESE PATIENTS SECTION =====
     if bmi >= 30:
         st.markdown('<div class="obese-header">⚠️ CONSIDER THESE RESULTS FOR OBESE PATIENTS (BMI ≥ 30)</div>', unsafe_allow_html=True)
