@@ -202,6 +202,20 @@ with tab_setup:
     jelliffe_bsa = crcl_jelliffe * (bsa / 1.73)
     salazar = calc_salazar_corcoran(sex, age, abw, height_cm, scr)
 
+    # ===== AUTOMATIC EQUATION SELECTION =====
+    if bmi >= 30 or abw > 1.2 * ibw:
+        equation_name = "Cockcroft-Gault (Adjusted BW)"
+        reason = "Obesity → Adjusted BW corrects overestimation bias"
+        selected_crcl = crcl_ajbw
+    elif abw < ibw:
+        equation_name = "Cockcroft-Gault (Actual BW)"
+        reason = "Underweight → Actual BW prevents underestimation of clearance"
+        selected_crcl = crcl_abw
+    else:
+        equation_name = "Cockcroft-Gault (Ideal BW)"
+        reason = "Normal Weight → Ideal BW provides best estimate"
+        selected_crcl = crcl_ibw
+
     st.markdown('<div class="crcl-header">🧪 Creatinine Clearance Summary</div>', unsafe_allow_html=True)
     with st.container(border=True):
         r1, r2 = st.columns(2)
@@ -235,14 +249,23 @@ with tab_setup:
         st.markdown(f"**Drug Class:** `{drug_info['class']}`")
         calc_mode = st.radio("Calculation Type", ["Initial regimen", "Dose adjustment"], horizontal=True)
         st.divider()
+        
+        st.markdown(f"""
+        <div style='background-color: #f0f9ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #0ea5e9;'>
+            <p style='margin:0; font-weight:600; color:#0f172a;'>Selected Equation: <span style='color:#0284c7;'>{equation_name}</span></p>
+            <p style='margin:5px 0 0 0; font-size:0.9em; color:#475569;'>Reason: {reason}</p>
+            <p style='margin:5px 0 0 0; font-weight:700; color:#0369a1;'>CrCl: {selected_crcl:.1f} mL/min</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
         t1, t2 = st.columns(2)
         target_peak = t1.number_input("Target Peak (mg/L)", value=float(drug_info["target_peak"]))
         target_trough = t2.number_input("Target Trough (mg/L)", value=float(drug_info["target_trough"])) if drug_info["target_trough"] > 0 else 0
         st.markdown("**Preferences**")
         interval = st.number_input("Preferred Dosing Interval (hrs) [0 = Auto]", min_value=0, value=0, step=12)
 
-    # Use CG-ABW as the primary CrCl for downstream PK
-    crcl = crcl_abw
+    # Use automatically selected CrCl for downstream PK
+    crcl = selected_crcl
 
 with tab_results:
     if st.button("🚀 Process Pharmacokinetics", type="primary", use_container_width=True):
