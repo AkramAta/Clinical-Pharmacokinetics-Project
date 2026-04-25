@@ -245,19 +245,82 @@ with tab_setup:
     st.markdown('<div class="crcl-header">🧪 Creatinine Clearance Summary</div>', unsafe_allow_html=True)
     with st.container(border=True):
 
-        st.write("<div style='margin-bottom: 0.5rem; font-weight: 600;'>Height</div>", unsafe_allow_html=True)
-        hcol1, hcol2 = st.columns(2, gap="small")
-        with hcol1:
-            height_input = st.number_input(" ", min_value=0.0, value=170.0, key="height_input", label_visibility="collapsed")
-        with hcol2:
-            height_unit = st.selectbox(" ", ["Centimeters", "Inches"], key="height_unit", label_visibility="collapsed")
 
-        st.write("<div style='margin-bottom: 0.5rem; font-weight: 600;'>Weight</div>", unsafe_allow_html=True)
-        wcol1, wcol2 = st.columns(2, gap="small")
-        with wcol1:
-            weight_input = st.number_input("  ", min_value=0.0, value=80.0, key="weight_input", label_visibility="collapsed")
-        with wcol2:
-            weight_unit = st.selectbox("  ", ["Kilograms", "Pounds"], key="weight_unit", label_visibility="collapsed")
+
+                st.markdown("""
+<style>
+.input-row-combined {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    flex-wrap: nowrap;
+}
+.input-row-combined label {
+    min-width: 36px;
+    font-weight: 500;
+    margin-right: 2px;
+    font-size: 0.95em;
+}
+.input-row-combined input, .input-row-combined select {
+    font-size: 0.95em;
+    padding: 2px 4px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    width: 48px;
+    max-width: 54px;
+    min-width: 0;
+}
+@media (max-width: 600px) {
+    .input-row-combined {
+        flex-wrap: nowrap !important;
+        gap: 1px;
+    }
+    .input-row-combined input, .input-row-combined select {
+        width: 38px;
+        max-width: 44px;
+        font-size: 0.9em;
+        padding: 1px 2px;
+    }
+}
+</style>
+""", unsafe_allow_html=True)
+
+                st.markdown("""
+<div class="input-row-combined">
+    <label for="height_input">Height</label>
+    <input type="number" id="height_input" name="height_input" min="0" step="0.01" value="{0}" onchange="window.parent.postMessage({{isStreamlitMessage: true, type: 'streamlit:setComponentValue', key: 'height_input', value: this.value}}, '*')">
+    <select id="height_unit" name="height_unit" onchange="window.parent.postMessage({{isStreamlitMessage: true, type: 'streamlit:setComponentValue', key: 'height_unit', value: this.value}}, '*')">
+        <option value="Centimeters" {1}>Centimeters</option>
+        <option value="Inches" {2}>Inches</option>
+    </select>
+    <label for="weight_input" style="margin-left:18px;">Weight</label>
+    <input type="number" id="weight_input" name="weight_input" min="0" step="0.01" value="{3}" onchange="window.parent.postMessage({{isStreamlitMessage: true, type: 'streamlit:setComponentValue', key: 'weight_input', value: this.value}}, '*')">
+    <select id="weight_unit" name="weight_unit" onchange="window.parent.postMessage({{isStreamlitMessage: true, type: 'streamlit:setComponentValue', key: 'weight_unit', value: this.value}}, '*')">
+        <option value="Kilograms" {4}>Kilograms</option>
+        <option value="Pounds" {5}>Pounds</option>
+    </select>
+</div>
+""".format(
+        st.session_state.get('height_input', 170.0),
+        'selected' if st.session_state.get('height_unit', 'Centimeters') == 'Centimeters' else '',
+        'selected' if st.session_state.get('height_unit', 'Centimeters') == 'Inches' else '',
+        st.session_state.get('weight_input', 80.0),
+        'selected' if st.session_state.get('weight_unit', 'Kilograms') == 'Kilograms' else '',
+        'selected' if st.session_state.get('weight_unit', 'Kilograms') == 'Pounds' else ''
+), unsafe_allow_html=True)
+
+                # Parse values from session_state
+                try:
+                        height_input = float(st.session_state.get('height_input', 170.0))
+                except Exception:
+                        height_input = 170.0
+                height_unit = st.session_state.get('height_unit', 'Centimeters')
+                try:
+                        weight_input = float(st.session_state.get('weight_input', 80.0))
+                except Exception:
+                        weight_input = 80.0
+                weight_unit = st.session_state.get('weight_unit', 'Kilograms')
     # ===== OBESE PATIENTS SECTION =====
     if bmi >= 30:
         st.markdown('<div class="obese-header">⚠️ CONSIDER THESE RESULTS FOR OBESE PATIENTS (BMI ≥ 30)</div>', unsafe_allow_html=True)
