@@ -178,9 +178,11 @@ with tab_setup:
         scr_unit = c3.selectbox("Scr Unit", ["mg/dL"], label_visibility="hidden")
         sex = c4.selectbox("Sex", ["Male", "Female"])
 
-        h1, h2, w1, w2 = st.columns([1, 1, 1, 1])
+        h1, h2 = st.columns(2)
         height_input = h1.number_input("Height", min_value=0.0, value=170.0)
         height_unit = h2.selectbox("Height Unit", ["Centimeters", "Inches"], label_visibility="hidden")
+
+        w1, w2 = st.columns(2)
         weight_input = w1.number_input("Weight", min_value=0.0, value=80.0)
         weight_unit = w2.selectbox("Weight Unit", ["Kilograms", "Pounds"], label_visibility="hidden")
 
@@ -204,7 +206,7 @@ with tab_setup:
     bmi_label, bmi_css = bmi_classify(bmi)
     dosing_weight = determine_dosing_weight(abw, ibw)
 
-    st.markdown('<div class="analysis-header">📊 Auto-Analysis / التحليل التلقائي</div>', unsafe_allow_html=True)
+    st.markdown('<div class="analysis-header">📊 Auto-Analysis</div>', unsafe_allow_html=True)
     with st.container(border=True):
         a1, a2 = st.columns(2)
         with a1:
