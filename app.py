@@ -521,27 +521,62 @@ with tab_results:
             st.subheader("3. Therapeutic Level Evaluation")
             thera_min = drug_info["thera_min"]
             thera_max = drug_info["thera_max"]
-            
-            if measured_level < thera_min:
-                status_text = "Below therapeutic range (Subtherapeutic)"
-                status_color = "#ef4444" # Red
-            elif measured_level > thera_max:
-                status_text = "Above therapeutic range (Potential toxicity)"
-                status_color = "#ef4444" # Red
-            else:
-                margin = 0.1 * (thera_max - thera_min)
-                if measured_level >= (thera_max - margin):
-                    status_text = "Within therapeutic range (near upper limit – monitor closely)"
-                    status_color = "#f59e0b" # Yellow/Amber
-                else:
+            if selected_drug == "Digoxin":
+                range_str = "0.5 – 0.9 ng/mL"
+                if measured_level < 0.5:
+                    status_text = "Below therapeutic range (Sub-therapeutic)"
+                    status_color = "#ef4444"
+                elif measured_level <= 0.9:
                     status_text = "Within therapeutic range"
-                    status_color = "#10b981" # Green
+                    status_color = "#10b981"
+                elif measured_level <= 2.0:
+                    status_text = "Upper therapeutic range (Caution)"
+                    status_color = "#f59e0b"
+                else:
+                    status_text = "Above therapeutic range (Toxic)"
+                    status_color = "#ef4444"
+                    
+            elif selected_drug == "Lidocaine":
+                range_str = "1.5 – 5.0 µg/mL"
+                if measured_level < 1.5:
+                    status_text = "Below therapeutic range"
+                    status_color = "#ef4444"
+                elif measured_level <= 5.0:
+                    status_text = "Within therapeutic range"
+                    status_color = "#10b981"
+                else:
+                    status_text = "Above therapeutic range (CNS toxicity risk)"
+                    status_color = "#ef4444"
+                    
+            elif selected_drug == "Procainamide":
+                range_str = "4.0 – 10.0 µg/mL"
+                if measured_level < 4.0:
+                    status_text = "Below therapeutic range"
+                    status_color = "#ef4444"
+                elif measured_level <= 10.0:
+                    status_text = "Within therapeutic range"
+                    status_color = "#10b981"
+                else:
+                    status_text = "Above therapeutic range"
+                    status_color = "#ef4444"
+                    
+            elif selected_drug == "Amiodarone":
+                range_str = "1.0 – 2.5 mg/L"
+                if measured_level < 1.0:
+                    status_text = "Below therapeutic range"
+                    status_color = "#ef4444"
+                elif measured_level <= 2.5:
+                    status_text = "Within therapeutic range"
+                    status_color = "#10b981"
+                else:
+                    status_text = "Above therapeutic range (toxicity risk)"
+                    status_color = "#ef4444"
 
             st.markdown(f"""
             <div style='background-color: var(--secondary-background-color); padding: 20px; border-radius: 12px; border-left: 4px solid {status_color}; margin-bottom: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);'>
                 <p style='margin:0 0 5px 0; font-size:1.1em; color:var(--text-color);'><strong>Drug:</strong> {selected_drug}</p>
                 <p style='margin:0 0 5px 0; font-size:1.1em; color:var(--text-color);'><strong>Level:</strong> {measured_level:.1f} {target_unit}</p>
-                <p style='margin:0 0 10px 0; font-size:1.1em; color:var(--text-color);'><strong>Therapeutic Range:</strong> {thera_min} – {thera_max} {target_unit}</p>
+                <p style='margin:0 0 10px 0; font-size:1.1em; color:var(--text-color);'><strong>Therapeutic Range:</strong> {range_str}</p>
                 <p style='margin:0; font-size:1.2em; font-weight:600; color:{status_color};'>Status: {status_text}</p>
             </div>
             """, unsafe_allow_html=True)
