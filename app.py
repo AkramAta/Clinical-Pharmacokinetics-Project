@@ -438,89 +438,17 @@ with tab_results:
         rc3.metric("Clearance", disp_cl)
         rc4.metric("Half-life (t½)", disp_thalf)
 
-        st.subheader("2. Individualized Dosage Regimen")
-        st.markdown(f"""
-        <div class="alert-box {validation_color}" style="margin-bottom: 20px;">
-            <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
-                <div style="flex: 1; min-width: 200px;">
-                    <h4 style="margin-top:0; color: inherit; font-size: 1.1em; opacity: 0.9;">💉 Loading Dose</h4>
-                    <p style="font-size: 1.3rem; margin-bottom:0; font-weight:bold;">{loading_text}</p>
-                </div>
-                <div style="flex: 1; min-width: 200px;">
-                    <h4 style="margin-top:0; color: inherit; font-size: 1.1em; opacity: 0.9;">💊 Maintenance Dose</h4>
-                    <p style="font-size: 1.3rem; margin-bottom:0; font-weight:bold;">{maintenance_text}</p>
-                </div>
-            </div>
-            <hr style="margin: 20px 0; border-color: currentColor; opacity: 0.2;">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
-                <div>
-                    <h4 style="margin: 0; color: inherit; font-size: 1.1em; opacity: 0.9;">🛡 Dose Validation</h4>
-                    <p style="margin: 0; font-weight: bold; font-size: 1.2em;">{validation_title}</p>
-                </div>
-                <div style="text-align: right;">
-                    <p style="margin: 0; font-size: 0.9em; opacity: 0.9;">Dose Check:</p>
-                    <p style="margin: 0; font-weight: 500;">{validation_status}</p>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # ===== FINAL RENAL-ADJUSTED DOSE =====
-        if crcl >= 60:
-            renal_cat = "Normal (≥60 mL/min)"
-        elif crcl >= 30:
-            renal_cat = "Mild Impairment (30-59 mL/min)"
-        elif crcl >= 15:
-            renal_cat = "Moderate Impairment (15-29 mL/min)"
-        else:
-            renal_cat = "Severe Impairment (<15 mL/min)"
-
-        st.markdown("### Final Renal-Adjusted Dose")
-        st.markdown(f"""
-        <div style='background-color: var(--secondary-background-color); padding: 20px; border-radius: 12px; border-left: 4px solid #8b5cf6; margin-bottom: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);'>
-            <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 15px;'>
-                <div>
-                    <p style='margin:0; color: var(--text-color); opacity: 0.7; font-size: 0.9em;'>Drug:</p>
-                    <p style='margin:0; font-weight:600; font-size: 1.1em;'>{selected_drug}</p>
-                </div>
-                <div>
-                    <p style='margin:0; color: var(--text-color); opacity: 0.7; font-size: 0.9em;'>Renal Category:</p>
-                    <p style='margin:0; font-weight:600; font-size: 1.1em;'>{renal_cat}</p>
-                </div>
-                <div>
-                    <p style='margin:0; color: var(--text-color); opacity: 0.7; font-size: 0.9em;'>Recommended Dose:</p>
-                    <p style='margin:0; font-weight:600; font-size: 1.1em;'>{rec_dose_str}</p>
-                </div>
-                <div>
-                    <p style='margin:0; color: var(--text-color); opacity: 0.7; font-size: 0.9em;'>Dosing Interval:</p>
-                    <p style='margin:0; font-weight:600; font-size: 1.1em;'>{interval_str}</p>
-                </div>
-                <div>
-                    <p style='margin:0; color: var(--text-color); opacity: 0.7; font-size: 0.9em;'>Administration:</p>
-                    <p style='margin:0; font-weight:600; font-size: 1.1em;'>{admin_str}</p>
-                </div>
-                <div>
-                    <p style='margin:0; color: var(--text-color); opacity: 0.7; font-size: 0.9em;'>Next Review:</p>
-                    <p style='margin:0; font-weight:600; font-size: 1.1em;'>Reassess renal function in 24 h</p>
-                </div>
-                <div>
-                    <p style='margin:0; color: var(--text-color); opacity: 0.7; font-size: 0.9em;'>Confidence:</p>
-                    <p style='margin:0; font-weight:600; font-size: 1.1em; color: #16a34a;'>High</p>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        for w in warnings:
-            st.markdown(f"""<div class="alert-box alert-warning"><b>⚠️ Warning:</b> {w}</div>""", unsafe_allow_html=True)
-        if crcl < 30:
-            st.markdown("""<div class="alert-box alert-danger"><b>🚨 Severe Renal Impairment Detected.</b> Consider dose reductions and close monitoring.</div>""", unsafe_allow_html=True)
-
-        # ===== THERAPEUTIC LEVEL EVALUATION =====
+        # Determine status colors and logic for Therapeutic Level Evaluation
+        level_status_text = "Not available"
+        status_text = "N/A"
+        status_color = ""
+        range_str = ""
+        
+        thera_min = drug_info["thera_min"]
+        thera_max = drug_info["thera_max"]
+        
         if measured_level > 0:
-            st.subheader("3. Therapeutic Level Evaluation")
-            thera_min = drug_info["thera_min"]
-            thera_max = drug_info["thera_max"]
+            level_status_text = f"{measured_level:.1f} {target_unit}"
             if selected_drug == "Digoxin":
                 range_str = "0.5 – 0.9 ng/mL"
                 if measured_level < 0.5:
@@ -535,7 +463,6 @@ with tab_results:
                 else:
                     status_text = "Above therapeutic range (Toxic)"
                     status_color = "#ef4444"
-                    
             elif selected_drug == "Lidocaine":
                 range_str = "1.5 – 5.0 µg/mL"
                 if measured_level < 1.5:
@@ -547,7 +474,6 @@ with tab_results:
                 else:
                     status_text = "Above therapeutic range (CNS toxicity risk)"
                     status_color = "#ef4444"
-                    
             elif selected_drug == "Procainamide":
                 range_str = "4.0 – 10.0 µg/mL"
                 if measured_level < 4.0:
@@ -559,7 +485,6 @@ with tab_results:
                 else:
                     status_text = "Above therapeutic range"
                     status_color = "#ef4444"
-                    
             elif selected_drug == "Amiodarone":
                 range_str = "1.0 – 2.5 mg/L"
                 if measured_level < 1.0:
@@ -571,15 +496,150 @@ with tab_results:
                 else:
                     status_text = "Above therapeutic range (toxicity risk)"
                     status_color = "#ef4444"
+        else:
+            if selected_drug == "Digoxin": range_str = "0.5 – 0.9 ng/mL"
+            elif selected_drug == "Lidocaine": range_str = "1.5 – 5.0 µg/mL"
+            elif selected_drug == "Procainamide": range_str = "4.0 – 10.0 µg/mL"
+            elif selected_drug == "Amiodarone": range_str = "1.0 – 2.5 mg/L"
 
-            st.markdown(f"""
-            <div style='background-color: var(--secondary-background-color); padding: 20px; border-radius: 12px; border-left: 4px solid {status_color}; margin-bottom: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);'>
-                <p style='margin:0 0 5px 0; font-size:1.1em; color:var(--text-color);'><strong>Drug:</strong> {selected_drug}</p>
-                <p style='margin:0 0 5px 0; font-size:1.1em; color:var(--text-color);'><strong>Level:</strong> {measured_level:.1f} {target_unit}</p>
-                <p style='margin:0 0 10px 0; font-size:1.1em; color:var(--text-color);'><strong>Therapeutic Range:</strong> {range_str}</p>
-                <p style='margin:0; font-size:1.2em; font-weight:600; color:{status_color};'>Status: {status_text}</p>
+        # Determine Overall Status
+        overall_level = 0 # 0 = Safe, 1 = Caution, 2 = Toxic
+        if "alert-danger" in validation_color:
+            overall_level = 2
+        elif "alert-warning" in validation_color:
+            overall_level = max(overall_level, 1)
+            
+        if measured_level > 0:
+            if status_color == "#ef4444":
+                overall_level = 2
+            elif status_color == "#f59e0b":
+                overall_level = max(overall_level, 1)
+                
+        if overall_level == 2:
+            card_color = "#ef4444"
+            card_icon = "🔴"
+            card_status = "High Risk – Immediate Review Required"
+            action_step = "<li>Hold dose immediately.</li><li>Evaluate for toxicity symptoms.</li><li>Consider antidote or alternative therapy if severe.</li>"
+            validation_status_plain = f"❌ {validation_status.replace('<br>', ' - ')}"
+        elif overall_level == 1:
+            card_color = "#f59e0b"
+            card_icon = "🟡"
+            card_status = "Caution – Upper Maintenance Range / Near Upper Limit"
+            action_step = "<li>Maintain dose but increase monitoring frequency.</li><li>Consider dose reduction if renal function declines or symptoms develop.</li>"
+            validation_status_plain = f"⚠ {validation_status.replace('<br>', ' - ')}"
+        else:
+            card_color = "#10b981"
+            card_icon = "🟢"
+            card_status = "Safe – Optimal Therapeutic Range"
+            action_step = "<li>Continue current dose.</li><li>Routine clinical monitoring.</li><li>Recheck levels if clinical status changes.</li>"
+            validation_status_plain = f"✔ {validation_status.replace('<br>', ' - ')}"
+            
+        # Toxicity Risk Engine & Monitoring
+        risk_flags = []
+        monitoring_points = []
+        
+        if measured_level == 0:
+            risk_flags.append("⚠ No serum level available for evaluation")
+            
+        if selected_drug == "Digoxin":
+            risk_flags.append("⚠ Narrow therapeutic index drug")
+            if crcl < 60: risk_flags.append("⚠ Risk significantly increases with renal impairment (CrCl < 60)")
+            monitoring_points = [
+                f"Serum digoxin level (target 0.5–0.9 ng/mL)",
+                "Serum creatinine / CrCl trend",
+                "Electrolytes: K⁺, Mg²⁺, Ca²⁺",
+                "ECG monitoring (if symptomatic)"
+            ]
+        elif selected_drug == "Lidocaine":
+            risk_flags.append("⚠ CNS toxicity risk at high serum levels")
+            risk_flags.append("⚠ Highly dependent on hepatic clearance")
+            monitoring_points = [
+                f"Serum lidocaine level (target 1.5–5.0 µg/mL)",
+                "CNS toxicity (confusion, seizures)",
+                "Neuro monitoring",
+                "Continuous ECG monitoring"
+            ]
+        elif selected_drug == "Procainamide":
+            risk_flags.append("⚠ Monitor for active NAPA metabolite")
+            if crcl < 60: risk_flags.append("⚠ Renal clearance dependency (CrCl < 60)")
+            monitoring_points = [
+                f"Serum procainamide level (target 4.0–10.0 µg/mL)",
+                "NAPA active metabolite level (10-20 µg/mL)",
+                "QT interval monitoring",
+                "Drug-induced lupus markers",
+                "CBC (monitor for agranulocytosis)"
+            ]
+        elif selected_drug == "Amiodarone":
+            risk_flags.append("⚠ Extremely long half-life and massive volume of distribution")
+            risk_flags.append("⚠ Multi-organ toxicity risk")
+            monitoring_points = [
+                f"Serum amiodarone level (target 1.0–2.5 mg/L)",
+                "TSH / T3 / T4",
+                "Liver enzymes",
+                "Lung toxicity (CXR/PFT)",
+                "Routine ECGs",
+                "Electrolytes (K⁺, Mg²⁺)"
+            ]
+            
+        risk_engine_html = "".join([f"<li>{flag}</li>" for flag in risk_flags])
+        monitoring_html = "".join([f"<li>{mon}</li>" for mon in monitoring_points])
+
+        st.subheader("2. Final Monitoring Output (Drug Card)")
+        st.markdown(f"""
+        <div style="border: 2px solid {card_color}80; border-radius: 10px; overflow: hidden; margin-bottom: 30px; background-color: var(--background-color);">
+            <div style="background-color: {card_color}15; padding: 20px; border-bottom: 2px solid {card_color}50;">
+                <h2 style="margin-top: 0; margin-bottom: 10px; color: {card_color}; display: flex; align-items: center; gap: 10px;">🟦 {selected_drug}</h2>
+                <h4 style="margin: 0; opacity: 0.9; color: var(--text-color);">🟨 1. Current Status</h4>
+                <p style="margin: 5px 0 0 0; font-size: 1.3em; font-weight: bold; color: {card_color};">{card_icon} {card_status}</p>
             </div>
-            """, unsafe_allow_html=True)
+            
+            <div style="padding: 20px;">
+                <div style="display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 25px;">
+                    <div style="flex: 1; min-width: 250px; background-color: var(--secondary-background-color); padding: 20px; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                        <h4 style="margin-top: 0; margin-bottom: 15px; font-size: 1.1em; color: var(--text-color);">📊 2. Therapeutic Assessment</h4>
+                        <ul style="margin-bottom: 0; padding-left: 20px; line-height: 1.6; color: var(--text-color);">
+                            <li><strong>Serum level status:</strong> {level_status_text}</li>
+                            <li><strong>Therapeutic range:</strong> {range_str}</li>
+                            <li><strong>Interpretation:</strong> <span style="color: {status_color if status_color else 'var(--text-color)'}; font-weight: 500;">{status_text}</span></li>
+                        </ul>
+                    </div>
+                    <div style="flex: 1; min-width: 250px; background-color: var(--secondary-background-color); padding: 20px; border-radius: 8px; border-left: 4px solid #8b5cf6;">
+                        <h4 style="margin-top: 0; margin-bottom: 15px; font-size: 1.1em; color: var(--text-color);">💉 3. Dose Evaluation</h4>
+                        <ul style="margin-bottom: 0; padding-left: 20px; line-height: 1.6; color: var(--text-color);">
+                            <li><strong>Maintenance dose:</strong> {maintenance_text}</li>
+                            <li><strong>Loading dose:</strong> {loading_text}</li>
+                            <li><strong>Dose status:</strong> <span style="font-weight: 500;">{validation_status_plain}</span></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 25px;">
+                    <h4 style="margin-top: 0; margin-bottom: 10px; font-size: 1.1em; color: var(--text-color);">🧪 4. Toxicity Risk Engine</h4>
+                    <ul style="padding-left: 20px; color: #ef4444; font-weight: 500; line-height: 1.6;">
+                        {risk_engine_html}
+                    </ul>
+                </div>
+                
+                <div style="margin-bottom: 25px;">
+                    <h4 style="margin-top: 0; margin-bottom: 10px; font-size: 1.1em; color: var(--text-color);">🧠 5. Clinical Monitoring Section</h4>
+                    <ul style="padding-left: 20px; line-height: 1.6; color: var(--text-color);">
+                        {monitoring_html}
+                    </ul>
+                </div>
+                
+                <hr style="opacity: 0.2; margin: 25px 0;">
+                
+                <div>
+                    <h4 style="margin-top: 0; margin-bottom: 15px; font-size: 1.1em; color: var(--text-color);">📌 6. Action Recommendation</h4>
+                    <div style="background-color: {card_color}10; padding: 15px; border-radius: 8px; border-left: 4px solid {card_color};">
+                        <ul style="margin-bottom: 0; padding-left: 20px; line-height: 1.6; font-weight: 600; color: {card_color};">
+                            {action_step}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
         st.session_state['last_pk'] = {
             "drug": selected_drug, "age": age, "sex": sex, "abw": abw, "crcl": crcl,
