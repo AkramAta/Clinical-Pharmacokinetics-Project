@@ -284,8 +284,12 @@ with tab_setup:
         """, unsafe_allow_html=True)
         
         t1, t2 = st.columns(2)
-        target_peak = t1.number_input("Target Peak (mg/L)", value=float(drug_info["target_peak"]))
-        target_trough = t2.number_input("Target Trough (mg/L)", value=float(drug_info["target_trough"])) if drug_info["target_trough"] > 0 else 0
+        target_unit = "µg/mL"
+        if selected_drug == "Digoxin": target_unit = "ng/mL"
+        elif selected_drug == "Amiodarone": target_unit = "mg/L"
+        
+        target_peak = t1.number_input(f"Target Peak ({target_unit})", value=float(drug_info["target_peak"]))
+        target_trough = t2.number_input(f"Target Trough ({target_unit})", value=float(drug_info["target_trough"])) if drug_info["target_trough"] > 0 else 0
         st.markdown("**Preferences**")
         interval = st.number_input("Preferred Dosing Interval (hrs) [0 = Auto]", min_value=0, value=0, step=12)
 
@@ -308,8 +312,8 @@ with tab_results:
         elif selected_drug == 'Procainamide':
             vd = 2.0 * abw
             cl = (180 + 3 * crcl) * 60 / 1000 if not is_hf else (90 + 1.5 * crcl) * 60 / 1000
-            if target_peak > 10.0: warnings.append("Procainamide target > 10 mcg/mL is associated with toxicity.")
-            if interval == 0: final_interval = 4 if crcl >= 50 else (6 if crcl >= 10 else 12)
+            if target_peak > 10.0: warnings.append("Procainamide target > 10 µg/mL is associated with toxicity.")
+            final_interval = 1  # Force continuous IV infusion
         elif selected_drug == 'Lidocaine':
             vd = (0.9 if is_hf else 1.1) * abw
             cl = (6.0 if is_hf else 10.0) * abw * 60 / 1000
@@ -328,29 +332,134 @@ with tab_results:
         if md > 0: md = round(md / 50) * 50 if md > 100 else round(md, 2)
         if ld > 0: ld = round(ld / 50) * 50 if ld > 100 else round(ld, 2)
 
+        validation_status = "✅ Within recommended dose limits"
+        validation_title = "Approved"
+        validation_color = "alert-success"
+
+        # Formatting based on drug rules
+        if selected_drug == "Digoxin":
+            disp_vd = f"{(vd / ibw):.1f} L/kg"
+            disp_cl = f"{(cl * 1000 / 60):.1f} mL/min"
+            disp_thalf = f"{t_half:.1f} hours"
+            md_daily = (md / final_interval) * 24 if final_interval > 0 else md
+            
+            # Dose limit check
+            if md_daily > 250:
+                md_daily = 250
+                validation_status = "🔴 Calculated dose exceeded maximum limit<br>✔ Auto-adjusted to safe maximum"
+                validation_title = "Auto-Adjusted"
+                validation_color = "alert-danger"
+            elif md_daily >= 200:
+                validation_status = "🟡 Near maximum recommended dose<br>Monitor closely"
+                validation_title = "Caution"
+                validation_color = "alert-warning"
+                
+            maintenance_text = f"{md_daily:,.0f} µg PO q{final_interval}h" if final_interval in [24, 48, 72] else f"{md_daily:,.0f} µg/day"
+            loading_text = f"{ld:,.0f} µg once" if ld > 0 else "None"
+            rec_dose_str = f"{md_daily:,.0f} µg/day"
+            admin_str = "PO or IV"
+            interval_str = f"q{final_interval}h"
+            
+        elif selected_drug == "Lidocaine":
+            disp_vd = f"{vd:.1f} L"
+            disp_cl = f"{cl:.2f} L/hr"
+            disp_thalf = f"{t_half:.1f} hours"
+            
+            # Dose limit check (Max ~ 240 mg/hr = 4 mg/min)
+            if md > 240:
+                md = 240
+                validation_status = "🔴 Calculated dose exceeded maximum limit<br>✔ Auto-adjusted to safe maximum"
+                validation_title = "Auto-Adjusted"
+                validation_color = "alert-danger"
+            elif md >= 180:
+                validation_status = "🟡 Near maximum recommended dose<br>Monitor closely"
+                validation_title = "Caution"
+                validation_color = "alert-warning"
+
+            maintenance_text = f"{md:.1f} mg/hr continuous infusion"
+            loading_text = f"{ld:,.0f} mg once" if ld > 0 else "None"
+            rec_dose_str = f"{md:.1f} mg/hr"
+            admin_str = "Continuous IV Infusion"
+            interval_str = "Continuous"
+            
+        elif selected_drug == "Procainamide":
+            disp_vd = f"{vd:.1f} L"
+            disp_cl = f"{cl:.2f} L/hr"
+            disp_thalf = f"{t_half:.1f} hours"
+            
+            # Dose limit check (Max ~ 240 mg/hr)
+            if md > 240:
+                md = 240
+                validation_status = "🔴 Calculated dose exceeded maximum limit<br>✔ Auto-adjusted to safe maximum"
+                validation_title = "Auto-Adjusted"
+                validation_color = "alert-danger"
+            elif md >= 180:
+                validation_status = "🟡 Near maximum recommended dose<br>Monitor closely"
+                validation_title = "Caution"
+                validation_color = "alert-warning"
+
+            maintenance_text = f"{md:.1f} mg/hr (IV infusion)"
+            loading_text = f"{ld:,.0f} mg once" if ld > 0 else "None"
+            rec_dose_str = f"{md:.1f} mg/hr"
+            admin_str = "IV Infusion"
+            interval_str = "Continuous"
+            
+        elif selected_drug == "Amiodarone":
+            disp_vd = f"{vd:,.0f} L"
+            disp_cl = f"{cl:.2f} L/hr"
+            disp_thalf = f"{(t_half/24):.1f} days"
+            dose_unit = "g" if ld >= 1000 else "mg"
+            ld_disp = ld / 1000 if ld >= 1000 else ld
+            md_daily = (md / final_interval) * 24 if final_interval > 0 else md
+            
+            # Dose limit check (Max ~ 800 mg/day)
+            if md_daily > 800:
+                md_daily = 800
+                validation_status = "🔴 Calculated dose exceeded maximum limit<br>✔ Auto-adjusted to safe maximum"
+                validation_title = "Auto-Adjusted"
+                validation_color = "alert-danger"
+            elif md_daily >= 400:
+                validation_status = "🟡 Near maximum recommended dose<br>Monitor closely"
+                validation_title = "Caution"
+                validation_color = "alert-warning"
+
+            maintenance_text = f"{md_daily:,.0f} mg/day"
+            loading_text = f"{ld_disp:,.1f} {dose_unit} once" if ld > 0 else "None"
+            rec_dose_str = maintenance_text
+            admin_str = "IV or PO"
+            interval_str = f"q{final_interval}h"
+
         st.subheader("1. Core PK Parameters")
         rc1, rc2, rc3, rc4 = st.columns(4)
         rc1.metric("Creatinine Clearance", f"{crcl:.1f} mL/min")
-        rc2.metric("Volume of Distribution", f"{vd:.1f} L")
-        rc3.metric("Clearance", f"{cl:.2f} L/hr")
-        if t_half > 72:
-            rc4.metric("Half-life (t½)", f"{(t_half/24):.1f} days")
-        else:
-            rc4.metric("Half-life (t½)", f"{t_half:.1f} hrs")
+        rc2.metric("Volume of Distribution", disp_vd)
+        rc3.metric("Clearance", disp_cl)
+        rc4.metric("Half-life (t½)", disp_thalf)
 
         st.subheader("2. Individualized Dosage Regimen")
-        if selected_drug == "Lidocaine":
-            maintenance_text = f"{md:.1f} mg/hr continuous infusion"
-        else:
-            maintenance_text = f"{md:,.0f} mg q{final_interval}h"
-            
-        loading_text = f"<p style='font-size: 1.2rem; margin-bottom:0;'><strong>Loading dose:</strong> {ld:,.0f} mg</p>" if ld > 0 else ""
-        
         st.markdown(f"""
-        <div class="alert-box alert-success">
-            <h3 style="margin-top:0; margin-bottom:10px; font-weight:bold;">{selected_drug}</h3>
-            <p style="font-size: 1.2rem; margin-bottom:5px;"><strong>Maintenance dose:</strong> {maintenance_text}</p>
-            {loading_text}
+        <div class="alert-box {validation_color}" style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
+                <div style="flex: 1; min-width: 200px;">
+                    <h4 style="margin-top:0; color: inherit; font-size: 1.1em; opacity: 0.9;">💉 Loading Dose</h4>
+                    <p style="font-size: 1.3rem; margin-bottom:0; font-weight:bold;">{loading_text}</p>
+                </div>
+                <div style="flex: 1; min-width: 200px;">
+                    <h4 style="margin-top:0; color: inherit; font-size: 1.1em; opacity: 0.9;">💊 Maintenance Dose</h4>
+                    <p style="font-size: 1.3rem; margin-bottom:0; font-weight:bold;">{maintenance_text}</p>
+                </div>
+            </div>
+            <hr style="margin: 20px 0; border-color: currentColor; opacity: 0.2;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                <div>
+                    <h4 style="margin: 0; color: inherit; font-size: 1.1em; opacity: 0.9;">🛡 Dose Validation</h4>
+                    <p style="margin: 0; font-weight: bold; font-size: 1.2em;">{validation_title}</p>
+                </div>
+                <div style="text-align: right;">
+                    <p style="margin: 0; font-size: 0.9em; opacity: 0.9;">Dose Check:</p>
+                    <p style="margin: 0; font-weight: 500;">{validation_status}</p>
+                </div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -363,15 +472,6 @@ with tab_results:
             renal_cat = "Moderate Impairment (15-29 mL/min)"
         else:
             renal_cat = "Severe Impairment (<15 mL/min)"
-
-        if selected_drug == "Lidocaine":
-            admin_str = "Continuous IV Infusion"
-            interval_str = "Continuous"
-            rec_dose_str = f"{md:.1f} mg/hr"
-        else:
-            admin_str = "IV/PO Administration"
-            interval_str = f"Every {final_interval} Hours (q{final_interval}h)"
-            rec_dose_str = f"{md:,.0f} mg"
 
         st.markdown("### Final Renal-Adjusted Dose")
         st.markdown(f"""
