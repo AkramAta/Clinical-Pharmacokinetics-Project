@@ -64,6 +64,37 @@ st.markdown("""
     .bmi-normal { background: #dcfce7; color: #166534; }
     .bmi-overweight { background: #fef9c3; color: #854d0e; }
     .bmi-obese { background: #fee2e2; color: #991b1b; }
+    
+    @media (prefers-color-scheme: dark) {
+        .reportview-container { background-color: #0e1117; }
+        h1, h2, h3, h4 { color: #f8fafc; }
+        .stMetric { background-color: #1e293b; border-top: 4px solid #38bdf8; }
+        
+        .alert-info { background-color: #0c4a6e; color: #e0f2fe; }
+        .alert-success { background-color: #14532d; color: #dcfce7; }
+        .alert-warning { background-color: #78350f; color: #fef3c7; }
+        .alert-danger { background-color: #7f1d1d; color: #fee2e2; }
+        
+        .primary-header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); }
+        .primary-header p { color: #94a3b8; }
+        
+        .stButton>button { border-color: #475569; background-color: #1e293b; color: #f8fafc; }
+        .stButton>button:hover { border-color: #64748b; background-color: #334155; }
+        
+        .bmi-underweight { background: #1e3a8a; color: #bfdbfe; }
+        .bmi-normal { background: #14532d; color: #bbf7d0; }
+        .bmi-overweight { background: #713f12; color: #fef08a; }
+        .bmi-obese { background: #7f1d1d; color: #fecaca; }
+        
+        .selected-eq-box {
+            background-color: #0c4a6e !important;
+            border-left: 4px solid #38bdf8 !important;
+        }
+        .selected-eq-box .eq-title { color: #f8fafc !important; }
+        .selected-eq-box .eq-name { color: #7dd3fc !important; }
+        .selected-eq-box .eq-reason { color: #cbd5e1 !important; }
+        .selected-eq-box .eq-value { color: #38bdf8 !important; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -251,10 +282,10 @@ with tab_setup:
         st.divider()
         
         st.markdown(f"""
-        <div style='background-color: #f0f9ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #0ea5e9;'>
-            <p style='margin:0; font-weight:600; color:#0f172a;'>Selected Equation: <span style='color:#0284c7;'>{equation_name}</span></p>
-            <p style='margin:5px 0 0 0; font-size:0.9em; color:#475569;'>Reason: {reason}</p>
-            <p style='margin:5px 0 0 0; font-weight:700; color:#0369a1;'>CrCl: {selected_crcl:.1f} mL/min</p>
+        <div class='selected-eq-box' style='background-color: #f0f9ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #0ea5e9;'>
+            <p class='eq-title' style='margin:0; font-weight:600; color:#0f172a;'>Selected Equation: <span class='eq-name' style='color:#0284c7;'>{equation_name}</span></p>
+            <p class='eq-reason' style='margin:5px 0 0 0; font-size:0.9em; color:#475569;'>Reason: {reason}</p>
+            <p class='eq-value' style='margin:5px 0 0 0; font-weight:700; color:#0369a1;'>CrCl: {selected_crcl:.1f} mL/min</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -315,14 +346,17 @@ with tab_results:
 
         st.subheader("2. Individualized Dosage Regimen")
         if selected_drug == "Lidocaine":
-            regimen_text = f"{selected_drug}: {md:.1f} mg/hr continuous infusion"
+            maintenance_text = f"{md:.1f} mg/hr continuous infusion"
         else:
-            regimen_text = f"{selected_drug}: {md:,.0f} mg q{final_interval}h"
+            maintenance_text = f"{md:,.0f} mg q{final_interval}h"
+            
+        loading_text = f"<p style='font-size: 1.2rem; margin-bottom:0;'><strong>Loading dose:</strong> {ld:,.0f} mg</p>" if ld > 0 else ""
+        
         st.markdown(f"""
         <div class="alert-box alert-success">
-            <h4 style="margin-top:0;">✅ Recommended Regimen</h4>
-            <p style="font-size: 1.5rem; margin-bottom:5px; font-weight:bold;">{regimen_text}</p>
-            {"<p style='margin-bottom:0;'><strong>Loading Dose:</strong> " + f"{ld:,.0f}" + " mg</p>" if ld > 0 else ""}
+            <h3 style="margin-top:0; margin-bottom:10px; font-weight:bold;">{selected_drug}</h3>
+            <p style="font-size: 1.2rem; margin-bottom:5px;"><strong>Maintenance dose:</strong> {maintenance_text}</p>
+            {loading_text}
         </div>
         """, unsafe_allow_html=True)
 
