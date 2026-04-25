@@ -438,6 +438,203 @@ with tab_results:
         rc3.metric("Clearance", disp_cl)
         rc4.metric("Half-life (t½)", disp_thalf)
 
+        # Determine status colors and logic for Therapeutic Level Evaluation
+        level_status_text = "Not available"
+        status_text = "N/A"
+        status_color = ""
+        range_str = ""
+        
+        thera_min = drug_info["thera_min"]
+        thera_max = drug_info["thera_max"]
+        
+        if measured_level > 0:
+            level_status_text = f"{measured_level:.1f} {target_unit}"
+            if selected_drug == "Digoxin":
+                range_str = "0.5 – 0.9 ng/mL"
+                if measured_level < 0.5:
+                    status_text = "Below therapeutic range (Sub-therapeutic)"
+                    status_color = "#ef4444"
+                elif measured_level <= 0.9:
+                    status_text = "Within therapeutic range"
+                    status_color = "#10b981"
+                elif measured_level <= 2.0:
+                    status_text = "Upper therapeutic range (Caution)"
+                    status_color = "#f59e0b"
+                else:
+                    status_text = "Above therapeutic range (Toxic)"
+                    status_color = "#ef4444"
+            elif selected_drug == "Lidocaine":
+                range_str = "1.5 – 5.0 µg/mL"
+                if measured_level < 1.5:
+                    status_text = "Below therapeutic range"
+                    status_color = "#ef4444"
+                elif measured_level <= 5.0:
+                    status_text = "Within therapeutic range"
+                    status_color = "#10b981"
+                else:
+                    status_text = "Above therapeutic range (CNS toxicity risk)"
+                    status_color = "#ef4444"
+            elif selected_drug == "Procainamide":
+                range_str = "4.0 – 10.0 µg/mL"
+                if measured_level < 4.0:
+                    status_text = "Below therapeutic range"
+                    status_color = "#ef4444"
+                elif measured_level <= 10.0:
+                    status_text = "Within therapeutic range"
+                    status_color = "#10b981"
+                else:
+                    status_text = "Above therapeutic range"
+                    status_color = "#ef4444"
+            elif selected_drug == "Amiodarone":
+                range_str = "1.0 – 2.5 mg/L"
+                if measured_level < 1.0:
+                    status_text = "Below therapeutic range"
+                    status_color = "#ef4444"
+                elif measured_level <= 2.5:
+                    status_text = "Within therapeutic range"
+                    status_color = "#10b981"
+                else:
+                    status_text = "Above therapeutic range (toxicity risk)"
+                    status_color = "#ef4444"
+        else:
+            if selected_drug == "Digoxin": range_str = "0.5 – 0.9 ng/mL"
+            elif selected_drug == "Lidocaine": range_str = "1.5 – 5.0 µg/mL"
+            elif selected_drug == "Procainamide": range_str = "4.0 – 10.0 µg/mL"
+            elif selected_drug == "Amiodarone": range_str = "1.0 – 2.5 mg/L"
+
+        # Determine Overall Status
+        overall_level = 0 # 0 = Safe, 1 = Caution, 2 = Toxic
+        if "alert-danger" in validation_color:
+            overall_level = 2
+        elif "alert-warning" in validation_color:
+            overall_level = max(overall_level, 1)
+            
+        if measured_level > 0:
+            if status_color == "#ef4444":
+                overall_level = 2
+            elif status_color == "#f59e0b":
+                overall_level = max(overall_level, 1)
+                
+        if overall_level == 2:
+            card_color = "#ef4444"
+            card_icon = "🔴"
+            card_status = "High Risk – Immediate Review Required"
+            action_step = "<li>Hold dose immediately.</li><li>Evaluate for toxicity symptoms.</li><li>Consider antidote or alternative therapy if severe.</li>"
+            validation_status_plain = f"❌ {validation_status.replace('<br>', ' - ')}"
+        elif overall_level == 1:
+            card_color = "#f59e0b"
+            card_icon = "🟡"
+            card_status = "Caution – Upper Maintenance Range / Near Upper Limit"
+            action_step = "<li>Maintain dose but increase monitoring frequency.</li><li>Consider dose reduction if renal function declines or symptoms develop.</li>"
+            validation_status_plain = f"⚠ {validation_status.replace('<br>', ' - ')}"
+        else:
+            card_color = "#10b981"
+            card_icon = "🟢"
+            card_status = "Safe – Optimal Therapeutic Range"
+            action_step = "<li>Continue current dose.</li><li>Routine clinical monitoring.</li><li>Recheck levels if clinical status changes.</li>"
+            validation_status_plain = f"✔ {validation_status.replace('<br>', ' - ')}"
+            
+        # Toxicity Risk Engine & Monitoring
+        risk_flags = []
+        monitoring_points = []
+        
+        if measured_level == 0:
+            risk_flags.append("⚠ No serum level available for evaluation")
+            
+        if selected_drug == "Digoxin":
+            risk_flags.append("⚠ Narrow therapeutic index drug")
+            if crcl < 60: risk_flags.append("⚠ Risk significantly increases with renal impairment (CrCl < 60)")
+            monitoring_points = [
+                f"Serum digoxin level (target 0.5–0.9 ng/mL)",
+                "Serum creatinine / CrCl trend",
+                "Electrolytes: K⁺, Mg²⁺, Ca²⁺",
+                "ECG monitoring (if symptomatic)"
+            ]
+        elif selected_drug == "Lidocaine":
+            risk_flags.append("⚠ CNS toxicity risk at high serum levels")
+            risk_flags.append("⚠ Highly dependent on hepatic clearance")
+            monitoring_points = [
+                f"Serum lidocaine level (target 1.5–5.0 µg/mL)",
+                "CNS toxicity (confusion, seizures)",
+                "Neuro monitoring",
+                "Continuous ECG monitoring"
+            ]
+        elif selected_drug == "Procainamide":
+            risk_flags.append("⚠ Monitor for active NAPA metabolite")
+            if crcl < 60: risk_flags.append("⚠ Renal clearance dependency (CrCl < 60)")
+            monitoring_points = [
+                f"Serum procainamide level (target 4.0–10.0 µg/mL)",
+                "NAPA active metabolite level (10-20 µg/mL)",
+                "QT interval monitoring",
+                "Drug-induced lupus markers",
+                "CBC (monitor for agranulocytosis)"
+            ]
+        elif selected_drug == "Amiodarone":
+            risk_flags.append("⚠ Extremely long half-life and massive volume of distribution")
+            risk_flags.append("⚠ Multi-organ toxicity risk")
+            monitoring_points = [
+                f"Serum amiodarone level (target 1.0–2.5 mg/L)",
+                "TSH / T3 / T4",
+                "Liver enzymes",
+                "Lung toxicity (CXR/PFT)",
+                "Routine ECGs",
+                "Electrolytes (K⁺, Mg²⁺)"
+            ]
+            
+        risk_engine_html = "".join([f"<li>{flag}</li>" for flag in risk_flags])
+        monitoring_html = "".join([f"<li>{mon}</li>" for mon in monitoring_points])
+
+        drug_card_html = f"""
+        <div style="border: 2px solid {card_color}80; border-radius: 10px; overflow: hidden; margin-bottom: 30px; background-color: var(--background-color);">
+            <div style="background-color: {card_color}15; padding: 20px; border-bottom: 2px solid {card_color}50;">
+                <h2 style="margin-top: 0; margin-bottom: 10px; color: {card_color}; display: flex; align-items: center; gap: 10px;">🟦 {selected_drug}</h2>
+                <h4 style="margin: 0; opacity: 0.9; color: var(--text-color);">🟨 1. Current Status</h4>
+                <p style="margin: 5px 0 0 0; font-size: 1.3em; font-weight: bold; color: {card_color};">{card_icon} {card_status}</p>
+            </div>
+            <div style="padding: 20px;">
+                <div style="display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 25px;">
+                    <div style="flex: 1; min-width: 250px; background-color: var(--secondary-background-color); padding: 20px; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                        <h4 style="margin-top: 0; margin-bottom: 15px; font-size: 1.1em; color: var(--text-color);">📊 2. Therapeutic Assessment</h4>
+                        <ul style="margin-bottom: 0; padding-left: 20px; line-height: 1.6; color: var(--text-color);">
+                            <li><strong>Serum level status:</strong> {level_status_text}</li>
+                            <li><strong>Therapeutic range:</strong> {range_str}</li>
+                            <li><strong>Interpretation:</strong> <span style="color: {status_color if status_color else 'var(--text-color)'}; font-weight: 500;">{status_text}</span></li>
+                        </ul>
+                    </div>
+                    <div style="flex: 1; min-width: 250px; background-color: var(--secondary-background-color); padding: 20px; border-radius: 8px; border-left: 4px solid #8b5cf6;">
+                        <h4 style="margin-top: 0; margin-bottom: 15px; font-size: 1.1em; color: var(--text-color);">💉 3. Dose Evaluation</h4>
+                        <ul style="margin-bottom: 0; padding-left: 20px; line-height: 1.6; color: var(--text-color);">
+                            <li><strong>Maintenance dose:</strong> {maintenance_text}</li>
+                            <li><strong>Loading dose:</strong> {loading_text}</li>
+                            <li><strong>Dose status:</strong> <span style="font-weight: 500;">{validation_status_plain}</span></li>
+                        </ul>
+                    </div>
+                </div>
+                <div style="margin-bottom: 25px;">
+                    <h4 style="margin-top: 0; margin-bottom: 10px; font-size: 1.1em; color: var(--text-color);">🧪 4. Toxicity Risk Engine</h4>
+                    <ul style="padding-left: 20px; color: #ef4444; font-weight: 500; line-height: 1.6;">
+                        {risk_engine_html}
+                    </ul>
+                </div>
+                <div style="margin-bottom: 25px;">
+                    <h4 style="margin-top: 0; margin-bottom: 10px; font-size: 1.1em; color: var(--text-color);">🧠 5. Clinical Monitoring Section</h4>
+                    <ul style="padding-left: 20px; line-height: 1.6; color: var(--text-color);">
+                        {monitoring_html}
+                    </ul>
+                </div>
+                <hr style="opacity: 0.2; margin: 25px 0;">
+                <div>
+                    <h4 style="margin-top: 0; margin-bottom: 15px; font-size: 1.1em; color: var(--text-color);">📌 6. Action Recommendation</h4>
+                    <div style="background-color: {card_color}10; padding: 15px; border-radius: 8px; border-left: 4px solid {card_color};">
+                        <ul style="margin-bottom: 0; padding-left: 20px; line-height: 1.6; font-weight: 600; color: {card_color};">
+                            {action_step}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        """
+
         st.subheader("2. Individualized Dosage Regimen")
         st.markdown(f"""
         <div class="alert-box {validation_color}" style="margin-bottom: 20px;">
@@ -519,59 +716,6 @@ with tab_results:
         # ===== THERAPEUTIC LEVEL EVALUATION =====
         if measured_level > 0:
             st.subheader("3. Therapeutic Level Evaluation")
-            thera_min = drug_info["thera_min"]
-            thera_max = drug_info["thera_max"]
-            if selected_drug == "Digoxin":
-                range_str = "0.5 – 0.9 ng/mL"
-                if measured_level < 0.5:
-                    status_text = "Below therapeutic range (Sub-therapeutic)"
-                    status_color = "#ef4444"
-                elif measured_level <= 0.9:
-                    status_text = "Within therapeutic range"
-                    status_color = "#10b981"
-                elif measured_level <= 2.0:
-                    status_text = "Upper therapeutic range (Caution)"
-                    status_color = "#f59e0b"
-                else:
-                    status_text = "Above therapeutic range (Toxic)"
-                    status_color = "#ef4444"
-                    
-            elif selected_drug == "Lidocaine":
-                range_str = "1.5 – 5.0 µg/mL"
-                if measured_level < 1.5:
-                    status_text = "Below therapeutic range"
-                    status_color = "#ef4444"
-                elif measured_level <= 5.0:
-                    status_text = "Within therapeutic range"
-                    status_color = "#10b981"
-                else:
-                    status_text = "Above therapeutic range (CNS toxicity risk)"
-                    status_color = "#ef4444"
-                    
-            elif selected_drug == "Procainamide":
-                range_str = "4.0 – 10.0 µg/mL"
-                if measured_level < 4.0:
-                    status_text = "Below therapeutic range"
-                    status_color = "#ef4444"
-                elif measured_level <= 10.0:
-                    status_text = "Within therapeutic range"
-                    status_color = "#10b981"
-                else:
-                    status_text = "Above therapeutic range"
-                    status_color = "#ef4444"
-                    
-            elif selected_drug == "Amiodarone":
-                range_str = "1.0 – 2.5 mg/L"
-                if measured_level < 1.0:
-                    status_text = "Below therapeutic range"
-                    status_color = "#ef4444"
-                elif measured_level <= 2.5:
-                    status_text = "Within therapeutic range"
-                    status_color = "#10b981"
-                else:
-                    status_text = "Above therapeutic range (toxicity risk)"
-                    status_color = "#ef4444"
-
             st.markdown(f"""
             <div style='background-color: var(--secondary-background-color); padding: 20px; border-radius: 12px; border-left: 4px solid {status_color}; margin-bottom: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);'>
                 <p style='margin:0 0 5px 0; font-size:1.1em; color:var(--text-color);'><strong>Drug:</strong> {selected_drug}</p>
@@ -584,32 +728,16 @@ with tab_results:
         st.session_state['last_pk'] = {
             "drug": selected_drug, "age": age, "sex": sex, "abw": abw, "crcl": crcl,
             "vd": vd, "ke": ke, "t_half": t_half, "md": md, "interval": final_interval, "ld": ld,
-            "mode": calc_mode, "ibw": ibw, "bmi": bmi, "bsa": bsa, "lbw": lbw, "ajbw": ajbw
+            "mode": calc_mode, "ibw": ibw, "bmi": bmi, "bsa": bsa, "lbw": lbw, "ajbw": ajbw,
+            "drug_card_html": drug_card_html
         }
 
 with tab_docs:
-    st.subheader("Clinical Documentation (SOAP)")
+    st.subheader("FINAL MONITORING OUTPUT (Clinical Documentation)")
     if 'last_pk' in st.session_state:
         pk = st.session_state['last_pk']
-        soap = f"""Subjective / Objective:
-Patient is a {pk['age']}yo {pk['sex']} presenting for {pk['drug']} therapy management.
-Wt: {pk['abw']}kg. Estimated CrCl: {pk['crcl']:.1f} mL/min.
+        st.markdown(pk['drug_card_html'], unsafe_allow_html=True)
+        
 
-Assessment:
-{pk['drug']} dosing designed to achieve therapeutic targets ({pk['mode']}).
-Patient-specific PK Parameters calculated:
-- Vd: {pk['vd']:.1f} L
-- Ke: {pk['ke']:.4f} hr⁻¹
-- t½: {pk['t_half']:.1f} hrs
-
-Plan:
-1. Initiate {pk['drug']} regimen: {pk['md']:,.0f} mg q{pk['interval']}h.
-"""
-        if pk['ld'] > 0:
-            soap += f"2. Administer a one-time loading dose of {pk['ld']:,.0f} mg.\n"
-        soap += "\nMonitoring:\n- Check serum creatinine and electrolytes regularly.\n- Adjust based on clinical response and subsequent levels."
-        st.text_area("Generated EMR Note", value=soap, height=300)
-        if st.button("📋 Copy to Clipboard"):
-            st.toast("Feature requires browser clipboard API.")
     else:
         st.info("Process a calculation in the Dosing tab first to generate documentation.")
