@@ -354,6 +354,61 @@ with tab_results:
         </div>
         """, unsafe_allow_html=True)
 
+        # ===== FINAL RENAL-ADJUSTED DOSE =====
+        if crcl >= 60:
+            renal_cat = "Normal (≥60 mL/min)"
+        elif crcl >= 30:
+            renal_cat = "Mild Impairment (30-59 mL/min)"
+        elif crcl >= 15:
+            renal_cat = "Moderate Impairment (15-29 mL/min)"
+        else:
+            renal_cat = "Severe Impairment (<15 mL/min)"
+
+        if selected_drug == "Lidocaine":
+            admin_str = "Continuous IV Infusion"
+            interval_str = "Continuous"
+            rec_dose_str = f"{md:.1f} mg/hr"
+        else:
+            admin_str = "IV/PO Administration"
+            interval_str = f"Every {final_interval} Hours (q{final_interval}h)"
+            rec_dose_str = f"{md:,.0f} mg"
+
+        st.markdown("### Final Renal-Adjusted Dose")
+        st.markdown(f"""
+        <div style='background-color: var(--secondary-background-color); padding: 20px; border-radius: 12px; border-left: 4px solid #8b5cf6; margin-bottom: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);'>
+            <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 15px;'>
+                <div>
+                    <p style='margin:0; color: var(--text-color); opacity: 0.7; font-size: 0.9em;'>Drug:</p>
+                    <p style='margin:0; font-weight:600; font-size: 1.1em;'>{selected_drug}</p>
+                </div>
+                <div>
+                    <p style='margin:0; color: var(--text-color); opacity: 0.7; font-size: 0.9em;'>Renal Category:</p>
+                    <p style='margin:0; font-weight:600; font-size: 1.1em;'>{renal_cat}</p>
+                </div>
+                <div>
+                    <p style='margin:0; color: var(--text-color); opacity: 0.7; font-size: 0.9em;'>Recommended Dose:</p>
+                    <p style='margin:0; font-weight:600; font-size: 1.1em;'>{rec_dose_str}</p>
+                </div>
+                <div>
+                    <p style='margin:0; color: var(--text-color); opacity: 0.7; font-size: 0.9em;'>Dosing Interval:</p>
+                    <p style='margin:0; font-weight:600; font-size: 1.1em;'>{interval_str}</p>
+                </div>
+                <div>
+                    <p style='margin:0; color: var(--text-color); opacity: 0.7; font-size: 0.9em;'>Administration:</p>
+                    <p style='margin:0; font-weight:600; font-size: 1.1em;'>{admin_str}</p>
+                </div>
+                <div>
+                    <p style='margin:0; color: var(--text-color); opacity: 0.7; font-size: 0.9em;'>Next Review:</p>
+                    <p style='margin:0; font-weight:600; font-size: 1.1em;'>Reassess renal function in 24 h</p>
+                </div>
+                <div>
+                    <p style='margin:0; color: var(--text-color); opacity: 0.7; font-size: 0.9em;'>Confidence:</p>
+                    <p style='margin:0; font-weight:600; font-size: 1.1em; color: #16a34a;'>High</p>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
         for w in warnings:
             st.markdown(f"""<div class="alert-box alert-warning"><b>⚠️ Warning:</b> {w}</div>""", unsafe_allow_html=True)
         if crcl < 30:
