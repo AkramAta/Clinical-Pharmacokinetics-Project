@@ -352,7 +352,7 @@ with tab_results:
                 validation_title = "Auto-Adjusted"
                 validation_color = "alert-danger"
             elif md_daily >= 200:
-                validation_status = "🟡 Near maximum recommended dose<br>Monitor closely"
+                validation_status = "🟡 High therapeutic dose<br>Monitor closely"
                 validation_title = "Caution"
                 validation_color = "alert-warning"
                 
@@ -374,7 +374,7 @@ with tab_results:
                 validation_title = "Auto-Adjusted"
                 validation_color = "alert-danger"
             elif md >= 180:
-                validation_status = "🟡 Near maximum recommended dose<br>Monitor closely"
+                validation_status = "🟡 High therapeutic dose<br>Monitor closely"
                 validation_title = "Caution"
                 validation_color = "alert-warning"
 
@@ -396,7 +396,7 @@ with tab_results:
                 validation_title = "Auto-Adjusted"
                 validation_color = "alert-danger"
             elif md >= 180:
-                validation_status = "🟡 Near maximum recommended dose<br>Monitor closely"
+                validation_status = "🟡 High therapeutic dose<br>Monitor closely"
                 validation_title = "Caution"
                 validation_color = "alert-warning"
 
@@ -421,7 +421,7 @@ with tab_results:
                 validation_title = "Auto-Adjusted"
                 validation_color = "alert-danger"
             elif md_daily >= 400:
-                validation_status = "🟡 Near maximum recommended dose<br>Monitor closely"
+                validation_status = "🟡 High therapeutic dose<br>Monitor closely"
                 validation_title = "Caution"
                 validation_color = "alert-warning"
 
