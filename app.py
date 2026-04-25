@@ -139,7 +139,6 @@ def calc_crcl_jelliffe(age, sex, scr):
 def calc_mdrd(age, sex, scr, race="Non black"):
     egfr = 175 * (scr ** -1.154) * (age ** -0.203)
     if sex == "Female": egfr *= 0.742
-    if race == "Black": egfr *= 1.212
     return egfr
 
 def calc_salazar_corcoran(sex, age, weight_kg, height_cm, scr):
@@ -245,13 +244,20 @@ with tab_setup:
 
     st.markdown('<div class="crcl-header">🧪 Creatinine Clearance Summary</div>', unsafe_allow_html=True)
     with st.container(border=True):
-        r1, r2 = st.columns(2)
-        r1.metric("CG — Actual Body Weight", f"{crcl_abw:.1f} mL/min")
-        r2.metric("CG — Ideal Body Weight", f"{crcl_ibw:.1f} mL/min")
-        r3, r4 = st.columns(2)
-        r3.metric("Jelliffe", f"{crcl_jelliffe:.1f} mL/min")
-        r4.metric("MDRD (eGFR)", f"{egfr_mdrd:.1f} mL/min/1.73 m²")
 
+        st.write("<div style='margin-bottom: 0.5rem; font-weight: 600;'>Height</div>", unsafe_allow_html=True)
+        hcol1, hcol2 = st.columns(2, gap="small")
+        with hcol1:
+            height_input = st.number_input(" ", min_value=0.0, value=170.0, key="height_input", label_visibility="collapsed")
+        with hcol2:
+            height_unit = st.selectbox(" ", ["Centimeters", "Inches"], key="height_unit", label_visibility="collapsed")
+
+        st.write("<div style='margin-bottom: 0.5rem; font-weight: 600;'>Weight</div>", unsafe_allow_html=True)
+        wcol1, wcol2 = st.columns(2, gap="small")
+        with wcol1:
+            weight_input = st.number_input("  ", min_value=0.0, value=80.0, key="weight_input", label_visibility="collapsed")
+        with wcol2:
+            weight_unit = st.selectbox("  ", ["Kilograms", "Pounds"], key="weight_unit", label_visibility="collapsed")
     # ===== OBESE PATIENTS SECTION =====
     if bmi >= 30:
         st.markdown('<div class="obese-header">⚠️ CONSIDER THESE RESULTS FOR OBESE PATIENTS (BMI ≥ 30)</div>', unsafe_allow_html=True)
