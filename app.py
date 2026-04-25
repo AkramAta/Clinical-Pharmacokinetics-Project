@@ -94,10 +94,10 @@ st.markdown("""
 
 # --- Drug Database ---
 DRUG_DB = {
-    "Digoxin": {"category": "Cardiovascular", "class": "Cardiac Glycoside", "target_peak": 1.5, "target_trough": 0.8, "mic": 0},
-    "Procainamide": {"category": "Cardiovascular", "class": "Antiarrhythmic", "target_peak": 6.0, "target_trough": 4.0, "mic": 0},
-    "Lidocaine": {"category": "Cardiovascular", "class": "Antiarrhythmic", "target_peak": 3.0, "target_trough": 1.5, "mic": 0},
-    "Amiodarone": {"category": "Cardiovascular", "class": "Antiarrhythmic", "target_peak": 1.5, "target_trough": 1.0, "mic": 0}
+    "Digoxin": {"category": "Cardiovascular", "class": "Cardiac Glycoside", "target_peak": 1.5, "target_trough": 0.8, "mic": 0, "thera_min": 0.5, "thera_max": 2.0},
+    "Procainamide": {"category": "Cardiovascular", "class": "Antiarrhythmic", "target_peak": 6.0, "target_trough": 4.0, "mic": 0, "thera_min": 4.0, "thera_max": 10.0},
+    "Lidocaine": {"category": "Cardiovascular", "class": "Antiarrhythmic", "target_peak": 3.0, "target_trough": 1.5, "mic": 0, "thera_min": 1.5, "thera_max": 5.0},
+    "Amiodarone": {"category": "Cardiovascular", "class": "Antiarrhythmic", "target_peak": 1.5, "target_trough": 1.0, "mic": 0, "thera_min": 1.0, "thera_max": 2.5}
 }
 
 # --- Helper Functions ---
@@ -290,8 +290,10 @@ with tab_setup:
         
         target_peak = t1.number_input(f"Target Peak ({target_unit})", value=float(drug_info["target_peak"]))
         target_trough = t2.number_input(f"Target Trough ({target_unit})", value=float(drug_info["target_trough"])) if drug_info["target_trough"] > 0 else 0
-        st.markdown("**Preferences**")
-        interval = st.number_input("Preferred Dosing Interval (hrs) [0 = Auto]", min_value=0, value=0, step=12)
+        st.markdown("**Preferences & Monitoring**")
+        m1, m2 = st.columns(2)
+        interval = m1.number_input("Preferred Dosing Interval (hrs) [0 = Auto]", min_value=0, value=0, step=12)
+        measured_level = m2.number_input(f"Measured Level ({target_unit}) [0 = Skip]", min_value=0.0, value=0.0, step=0.1)
 
     # Use automatically selected CrCl for downstream PK
     crcl = selected_crcl
@@ -513,6 +515,36 @@ with tab_results:
             st.markdown(f"""<div class="alert-box alert-warning"><b>⚠️ Warning:</b> {w}</div>""", unsafe_allow_html=True)
         if crcl < 30:
             st.markdown("""<div class="alert-box alert-danger"><b>🚨 Severe Renal Impairment Detected.</b> Consider dose reductions and close monitoring.</div>""", unsafe_allow_html=True)
+
+        # ===== THERAPEUTIC LEVEL EVALUATION =====
+        if measured_level > 0:
+            st.subheader("3. Therapeutic Level Evaluation")
+            thera_min = drug_info["thera_min"]
+            thera_max = drug_info["thera_max"]
+            
+            if measured_level < thera_min:
+                status_text = "Below therapeutic range (Subtherapeutic)"
+                status_color = "#ef4444" # Red
+            elif measured_level > thera_max:
+                status_text = "Above therapeutic range (Potential toxicity)"
+                status_color = "#ef4444" # Red
+            else:
+                margin = 0.1 * (thera_max - thera_min)
+                if measured_level >= (thera_max - margin):
+                    status_text = "Within therapeutic range (near upper limit – monitor closely)"
+                    status_color = "#f59e0b" # Yellow/Amber
+                else:
+                    status_text = "Within therapeutic range"
+                    status_color = "#10b981" # Green
+
+            st.markdown(f"""
+            <div style='background-color: var(--secondary-background-color); padding: 20px; border-radius: 12px; border-left: 4px solid {status_color}; margin-bottom: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);'>
+                <p style='margin:0 0 5px 0; font-size:1.1em; color:var(--text-color);'><strong>Drug:</strong> {selected_drug}</p>
+                <p style='margin:0 0 5px 0; font-size:1.1em; color:var(--text-color);'><strong>Level:</strong> {measured_level:.1f} {target_unit}</p>
+                <p style='margin:0 0 10px 0; font-size:1.1em; color:var(--text-color);'><strong>Therapeutic Range:</strong> {thera_min} – {thera_max} {target_unit}</p>
+                <p style='margin:0; font-size:1.2em; font-weight:600; color:{status_color};'>Status: {status_text}</p>
+            </div>
+            """, unsafe_allow_html=True)
 
         st.session_state['last_pk'] = {
             "drug": selected_drug, "age": age, "sex": sex, "abw": abw, "crcl": crcl,
