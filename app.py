@@ -6,90 +6,69 @@ st.set_page_config(page_title="PrecisionPK | Clinical Dosing", layout="wide", pa
 # --- Custom CSS for Styling ---
 st.markdown("""
 <style>
-    /* Premium dark/slate theme */
-    .reportview-container {
-        background-color: #f8fafc;
-    }
-    .main .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-        max-width: 1100px;
-    }
-    h1, h2, h3, h4 {
-        color: #0f172a;
-        font-family: 'Inter', sans-serif;
-    }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    .reportview-container { background-color: #f8fafc; }
+    .main .block-container { padding-top: 2rem; padding-bottom: 2rem; max-width: 1100px; }
+    h1, h2, h3, h4 { color: #0f172a; font-family: 'Inter', sans-serif; }
     .stMetric {
-        background-color: #ffffff;
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        background-color: #ffffff; padding: 20px; border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
         border-top: 4px solid #0ea5e9;
     }
-    .stMetric:hover {
-        transform: translateY(-2px);
-        transition: transform 0.2s ease;
-    }
+    .stMetric:hover { transform: translateY(-2px); transition: transform 0.2s ease; }
     .alert-box {
-        padding: 20px;
-        border-radius: 12px;
-        margin-bottom: 24px;
-        border-left: 6px solid;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        padding: 20px; border-radius: 12px; margin-bottom: 24px;
+        border-left: 6px solid; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
     }
     .alert-info { background-color: #f0f9ff; border-color: #0284c7; color: #0c4a6e; }
     .alert-success { background-color: #f0fdf4; border-color: #16a34a; color: #14532d; }
     .alert-warning { background-color: #fffbeb; border-color: #d97706; color: #78350f; }
     .alert-danger { background-color: #fef2f2; border-color: #dc2626; color: #7f1d1d; }
-    
     .stButton>button {
-        font-weight: 600;
-        border-radius: 8px;
-        transition: all 0.2s;
-        border: 1px solid #cbd5e1;
+        font-weight: 600; border-radius: 8px; transition: all 0.2s; border: 1px solid #cbd5e1;
     }
     .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        border-color: #94a3b8;
+        transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-color: #94a3b8;
     }
     .primary-header {
         background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
-        color: #f8fafc !important;
-        padding: 40px 30px;
-        border-radius: 16px;
-        margin-bottom: 30px;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        color: #f8fafc !important; padding: 40px 30px; border-radius: 16px;
+        margin-bottom: 30px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
     }
-    .primary-header h1 {
-        color: #f8fafc !important;
-        margin: 0;
-        font-size: 2.8rem;
-        letter-spacing: -0.02em;
-    }
-    .primary-header p {
-        color: #cbd5e1;
-        margin-top: 10px;
-        font-size: 1.1rem;
-        font-weight: 400;
-    }
-    /* Hide default sidebar nav if any */
+    .primary-header h1 { color: #f8fafc !important; margin: 0; font-size: 2.8rem; letter-spacing: -0.02em; }
+    .primary-header p { color: #cbd5e1; margin-top: 10px; font-size: 1.1rem; font-weight: 400; }
     div[data-testid="stSidebarNav"] { display: none; }
+    .analysis-header {
+        background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
+        color: white !important; padding: 14px 20px; border-radius: 10px;
+        margin: 20px 0 16px 0; text-align: center; font-weight: 700; font-size: 1.15rem;
+        letter-spacing: 0.03em; box-shadow: 0 4px 12px rgba(14,165,233,0.3);
+    }
+    .crcl-header {
+        background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
+        color: white !important; padding: 14px 20px; border-radius: 10px;
+        margin: 24px 0 16px 0; text-align: center; font-weight: 700; font-size: 1.15rem;
+        letter-spacing: 0.03em; box-shadow: 0 4px 12px rgba(139,92,246,0.3);
+    }
+    .obese-header {
+        background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+        color: white !important; padding: 14px 20px; border-radius: 10px;
+        margin: 24px 0 16px 0; text-align: center; font-weight: 700; font-size: 1.15rem;
+        letter-spacing: 0.03em; box-shadow: 0 4px 12px rgba(239,68,68,0.3);
+    }
+    .bmi-badge {
+        display: inline-block; padding: 4px 14px; border-radius: 20px;
+        font-weight: 600; font-size: 0.9rem; margin-left: 8px;
+    }
+    .bmi-underweight { background: #dbeafe; color: #1e40af; }
+    .bmi-normal { background: #dcfce7; color: #166534; }
+    .bmi-overweight { background: #fef9c3; color: #854d0e; }
+    .bmi-obese { background: #fee2e2; color: #991b1b; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Drug Database (Combined) ---
+# --- Drug Database ---
 DRUG_DB = {
-    # Antibiotics
-    "Gentamicin": {"category": "Antibiotic", "class": "Aminoglycoside", "vd_l_kg": 0.25, "cl_factor": 0.82, "target_peak": 30.0, "target_trough": 1.0, "mic": 4.0},
-    "Tobramycin": {"category": "Antibiotic", "class": "Aminoglycoside", "vd_l_kg": 0.25, "cl_factor": 0.82, "target_peak": 30.0, "target_trough": 1.0, "mic": 4.0},
-    "Amikacin": {"category": "Antibiotic", "class": "Aminoglycoside", "vd_l_kg": 0.25, "cl_factor": 0.82, "target_peak": 60.0, "target_trough": 4.0, "mic": 16.0},
-    "Vancomycin": {"category": "Antibiotic", "class": "Glycopeptide", "vd_l_kg": 0.7, "cl_factor": 0.689, "target_peak": 40.0, "target_trough": 15.0, "mic": 1.0},
-    "Meropenem": {"category": "Antibiotic", "class": "Beta-lactam", "vd_l_kg": 0.3, "cl_factor": 0.82, "target_peak": 0, "target_trough": 0, "mic": 2.0},
-    "Cefepime": {"category": "Antibiotic", "class": "Beta-lactam", "vd_l_kg": 0.3, "cl_factor": 0.82, "target_peak": 0, "target_trough": 0, "mic": 8.0},
-    "Piperacillin/Tazobactam": {"category": "Antibiotic", "class": "Beta-lactam", "vd_l_kg": 0.3, "cl_factor": 0.82, "target_peak": 0, "target_trough": 0, "mic": 16.0},
-    
-    # Cardiovascular (Original app features)
     "Digoxin": {"category": "Cardiovascular", "class": "Cardiac Glycoside", "target_peak": 1.5, "target_trough": 0.8, "mic": 0},
     "Procainamide": {"category": "Cardiovascular", "class": "Antiarrhythmic", "target_peak": 6.0, "target_trough": 4.0, "mic": 0},
     "Lidocaine": {"category": "Cardiovascular", "class": "Antiarrhythmic", "target_peak": 3.0, "target_trough": 1.5, "mic": 0},
@@ -99,22 +78,57 @@ DRUG_DB = {
 # --- Helper Functions ---
 def calc_ibw(sex, height_cm):
     height_in = height_cm / 2.54
+    return (50 + 2.3 * max(0, height_in - 60)) if sex == "Male" else (45.5 + 2.3 * max(0, height_in - 60))
+
+def calc_bmi(weight_kg, height_cm):
+    height_m = height_cm / 100.0
+    return weight_kg / (height_m ** 2) if height_m > 0 else 0
+
+def calc_bsa(height_cm, weight_kg):
+    return math.sqrt((height_cm * weight_kg) / 3600.0)
+
+def calc_lbw(sex, weight_kg, height_cm):
     if sex == "Male":
-        return 50 + 2.3 * max(0, height_in - 60)
-    else:
-        return 45.5 + 2.3 * max(0, height_in - 60)
+        return (0.32810 * weight_kg) + (0.33929 * height_cm) - 29.5336
+    return (0.29569 * weight_kg) + (0.41813 * height_cm) - 43.2933
+
+def calc_ajbw(ibw, abw):
+    return ibw + 0.4 * (abw - ibw)
+
+def bmi_classify(bmi):
+    if bmi < 18.5: return "Underweight", "bmi-underweight"
+    if bmi < 25: return "Normal", "bmi-normal"
+    if bmi < 30: return "Overweight", "bmi-overweight"
+    return "Obese", "bmi-obese"
 
 def calc_crcl(age, weight, sex, scr):
     crcl = ((140 - age) * weight) / (72 * scr)
     if sex == "Female": crcl *= 0.85
     return crcl
 
+def calc_crcl_jelliffe(age, sex, scr):
+    crcl = (98 - 0.8 * (age - 20)) / scr
+    if sex == "Female": crcl *= 0.9
+    return crcl
+
+def calc_mdrd(age, sex, scr, race="Non black"):
+    egfr = 175 * (scr ** -1.154) * (age ** -0.203)
+    if sex == "Female": egfr *= 0.742
+    if race == "Black": egfr *= 1.212
+    return egfr
+
+def calc_salazar_corcoran(sex, age, weight_kg, height_cm, scr):
+    height_m = height_cm / 100.0
+    if sex == "Male":
+        return ((137 - age) * ((0.285 * weight_kg) + (12.1 * (height_m ** 2)))) / (51 * scr)
+    return ((146 - age) * ((0.287 * weight_kg) + (9.74 * (height_m ** 2)))) / (60 * scr)
+
 def determine_dosing_weight(abw, ibw):
     if abw < ibw: return abw
-    if abw > 1.2 * ibw: return ibw + 0.4 * (abw - ibw) # AdjBW
+    if abw > 1.2 * ibw: return ibw + 0.4 * (abw - ibw)
     return ibw
 
-# --- Layout: Header ---
+# --- Header ---
 st.markdown("""
 <div class='primary-header'>
     <h1>🧬 PrecisionPK</h1>
@@ -122,129 +136,150 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# --- Layout: Main Tabs ---
+# --- Main Tabs ---
 tab_setup, tab_results, tab_docs = st.tabs(["1. Patient & Drug Setup", "2. Dosing & PK Results", "3. Clinical Documentation"])
 
 with tab_setup:
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        st.subheader("👤 Patient Demographics")
+    # ===== PATIENT DEMOGRAPHICS =====
+    st.subheader("👤 Patient Demographics")
+    with st.container(border=True):
+        n1, n2 = st.columns(2)
+        patient_name = n1.text_input("Patient Name")
+        patient_location = n2.text_input("Location")
+
+        c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
+        age = c1.number_input("Age", min_value=18, max_value=120, value=65)
+        scr = c2.number_input("Scr", min_value=0.1, max_value=15.0, value=1.0, step=0.1)
+        scr_unit = c3.selectbox("Scr Unit", ["mg/dL"], label_visibility="hidden")
+        sex = c4.selectbox("Sex", ["Male", "Female"])
+
+        h1, h2, w1, w2 = st.columns([1, 1, 1, 1])
+        height_input = h1.number_input("Height", min_value=0.0, value=170.0)
+        height_unit = h2.selectbox("Height Unit", ["Centimeters", "Inches"], label_visibility="hidden")
+        weight_input = w1.number_input("Weight", min_value=0.0, value=80.0)
+        weight_unit = w2.selectbox("Weight Unit", ["Kilograms", "Pounds"], label_visibility="hidden")
+
+        height_cm = height_input * 2.54 if height_unit == "Inches" else height_input
+        abw = weight_input * 0.453592 if weight_unit == "Pounds" else weight_input
+
+        race = st.selectbox("For MDRD equation, specify race", ["Non black", "Black"])
+        scr_stable = st.selectbox("Is the serum creatinine (Scr) currently stable?", ["Yes", "No"])
+        scr_ref = st.selectbox("Select serum creatinine reference standard",
+                               ["Conventional serum creatinine value reported - scr (DEFAULT)",
+                                "IDMS-traceable serum creatinine - scr"])
+
+        is_hf = st.checkbox("Patient has Congestive Heart Failure (CHF)")
+
+    # ===== AUTO-ANALYSIS SECTION =====
+    ibw = calc_ibw(sex, height_cm)
+    bmi = calc_bmi(abw, height_cm)
+    bsa = calc_bsa(height_cm, abw)
+    lbw = calc_lbw(sex, abw, height_cm)
+    ajbw = calc_ajbw(ibw, abw)
+    bmi_label, bmi_css = bmi_classify(bmi)
+    dosing_weight = determine_dosing_weight(abw, ibw)
+
+    st.markdown('<div class="analysis-header">📊 Auto-Analysis / التحليل التلقائي</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        a1, a2 = st.columns(2)
+        with a1:
+            st.markdown(f"**BMI:** `{bmi:.2f}` kg/m² <span class='bmi-badge {bmi_css}'>{bmi_label}</span>", unsafe_allow_html=True)
+            st.metric("Ideal Body Weight (IBW)", f"{ibw:.2f} kg")
+            st.metric("BSA (Mosteller)", f"{bsa:.2f} m²")
+        with a2:
+            st.metric("Lean Body Weight (LBW)", f"{lbw:.2f} kg")
+            st.metric("Adjusted Body Weight (AjBW)", f"{ajbw:.2f} kg")
+            weight_note = "Actual Weight" if abw <= 1.2 * ibw else "Adjusted Weight (AjBW)"
+            if abw < ibw: weight_note = "Actual Weight (below IBW)"
+            st.info(f"💡 **Dosing Weight Used:** {dosing_weight:.2f} kg — _{weight_note}_")
+
+    # ===== CREATININE CLEARANCE SUMMARY =====
+    crcl_abw = calc_crcl(age, abw, sex, scr)
+    crcl_ibw = calc_crcl(age, ibw, sex, scr)
+    crcl_jelliffe = calc_crcl_jelliffe(age, sex, scr)
+    egfr_mdrd = calc_mdrd(age, sex, scr, race)
+    crcl_ajbw = calc_crcl(age, ajbw, sex, scr)
+    jelliffe_bsa = crcl_jelliffe * (bsa / 1.73)
+    salazar = calc_salazar_corcoran(sex, age, abw, height_cm, scr)
+
+    st.markdown('<div class="crcl-header">🧪 Creatinine Clearance Summary</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        r1, r2 = st.columns(2)
+        r1.metric("CG — Actual Body Weight", f"{crcl_abw:.1f} mL/min")
+        r2.metric("CG — Ideal Body Weight", f"{crcl_ibw:.1f} mL/min")
+        r3, r4 = st.columns(2)
+        r3.metric("Jelliffe", f"{crcl_jelliffe:.1f} mL/min")
+        r4.metric("MDRD (eGFR)", f"{egfr_mdrd:.1f} mL/min/1.73 m²")
+
+    # ===== OBESE PATIENTS SECTION =====
+    if bmi >= 30:
+        st.markdown('<div class="obese-header">⚠️ CONSIDER THESE RESULTS FOR OBESE PATIENTS (BMI ≥ 30)</div>', unsafe_allow_html=True)
+        pct_over = ((abw - ibw) / ibw) * 100 if ibw > 0 else 0
+        st.markdown(f"Currently **{pct_over:.2f}%** over IBW.")
         with st.container(border=True):
-            c1, c2 = st.columns(2)
-            age = c1.number_input("Age (years)", min_value=18, max_value=120, value=65)
-            sex = c2.selectbox("Sex", ["Male", "Female"])
-            
-            c3, c4 = st.columns(2)
-            abw = c3.number_input("Weight (kg)", min_value=30.0, max_value=300.0, value=80.0)
-            height_cm = c4.number_input("Height (cm)", min_value=120.0, max_value=250.0, value=170.0)
-            
-            scr = st.number_input("Serum Creatinine (mg/dL)", min_value=0.1, max_value=15.0, value=1.0, step=0.1)
-            is_hf = st.checkbox("Patient has Congestive Heart Failure (CHF)")
-            
-            # Weight Assessment
-            ibw = calc_ibw(sex, height_cm)
-            dosing_weight = determine_dosing_weight(abw, ibw)
-            crcl = calc_crcl(age, abw, sex, scr)
+            o1, o2 = st.columns(2)
+            o1.metric("CG — Adjusted BW (AdjBW)", f"{crcl_ajbw:.1f} mL/min")
+            o2.metric("Salazar-Corcoran (Obese)", f"{salazar:.1f} mL/min")
+            o3, o4 = st.columns(2)
+            o3.metric("Jelliffe (adjusted for BSA)", f"{jelliffe_bsa:.1f} mL/min")
+            o4.metric("MDRD (eGFR)", f"{egfr_mdrd:.1f} mL/min/1.73 m²")
 
-    with col2:
-        st.subheader("💊 Therapy Selection")
-        with st.container(border=True):
-            drug_category = st.radio("Drug Category", ["Antibiotics", "Cardiovascular"], horizontal=True)
-            
-            available_drugs = [d for d, info in DRUG_DB.items() if info["category"] == drug_category.rstrip("s") or info["category"] == drug_category]
-            selected_drug = st.selectbox("Select Drug", available_drugs)
-            drug_info = DRUG_DB[selected_drug]
-            
-            st.markdown(f"**Drug Class:** `{drug_info['class']}`")
-            
-            if drug_category == "Antibiotics":
-                calc_mode = st.radio("Dosing Strategy", ["Empiric (Initial)", "TDM (Therapeutic Drug Monitoring)"], horizontal=True)
-            else:
-                calc_mode = st.radio("Calculation Type", ["Initial regimen", "Dose adjustment"], horizontal=True)
+    st.divider()
 
-            st.divider()
-            
-            # Targets
-            t1, t2 = st.columns(2)
-            target_peak = t1.number_input("Target Peak (mg/L)", value=float(drug_info["target_peak"]))
-            if drug_info["target_trough"] > 0:
-                target_trough = t2.number_input("Target Trough (mg/L)", value=float(drug_info["target_trough"]))
-            else:
-                target_trough = 0
+    # ===== THERAPY SELECTION =====
+    st.subheader("💊 Therapy Selection")
+    with st.container(border=True):
+        available_drugs = list(DRUG_DB.keys())
+        selected_drug = st.selectbox("Select Drug", available_drugs)
+        drug_info = DRUG_DB[selected_drug]
+        st.markdown(f"**Drug Class:** `{drug_info['class']}`")
+        calc_mode = st.radio("Calculation Type", ["Initial regimen", "Dose adjustment"], horizontal=True)
+        st.divider()
+        t1, t2 = st.columns(2)
+        target_peak = t1.number_input("Target Peak (mg/L)", value=float(drug_info["target_peak"]))
+        target_trough = t2.number_input("Target Trough (mg/L)", value=float(drug_info["target_trough"])) if drug_info["target_trough"] > 0 else 0
+        st.markdown("**Preferences**")
+        interval = st.number_input("Preferred Dosing Interval (hrs) [0 = Auto]", min_value=0, value=0, step=12)
 
-            # Schedule preference
-            st.markdown("**Preferences**")
-            interval = st.number_input("Preferred Dosing Interval (hrs) [0 = Auto]", min_value=0, value=0, step=12)
+    # Use CG-ABW as the primary CrCl for downstream PK
+    crcl = crcl_abw
 
 with tab_results:
     if st.button("🚀 Process Pharmacokinetics", type="primary", use_container_width=True):
         st.divider()
-        
-        # Calculate PK parameters based on category
         vd = cl = t_half = ld = md = ke = 0.0
         final_interval = interval
         warnings = []
-        
-        if drug_category == "Cardiovascular":
-            # Original Cardiovascular Logic
-            if selected_drug == 'Digoxin':
-                vd_factor = 7.3 if crcl >= 30 else 4.5
-                vd = vd_factor * ibw
-                cl = ((0.8 * ibw) + crcl) * 60 / 1000
-                if target_peak > 2.0: warnings.append("Digoxin target > 2.0 ng/mL increases toxicity risk.")
-                if interval == 0: final_interval = 24 if crcl >= 50 else (48 if crcl >= 20 else 72)
-                
-            elif selected_drug == 'Procainamide':
-                vd = 2.0 * abw
-                cl = (180 + 3 * crcl) * 60 / 1000 if not is_hf else (90 + 1.5 * crcl) * 60 / 1000
-                if target_peak > 10.0: warnings.append("Procainamide target > 10 mcg/mL is associated with toxicity.")
-                if interval == 0: final_interval = 4 if crcl >= 50 else (6 if crcl >= 10 else 12)
 
-            elif selected_drug == 'Lidocaine':
-                vd = (0.9 if is_hf else 1.1) * abw
-                cl = (6.0 if is_hf else 10.0) * abw * 60 / 1000
-                final_interval = 1 # Continuous approximation
-                
-            elif selected_drug == 'Amiodarone':
-                vd = 60 * abw
-                cl = 0.12 * abw
-                if interval == 0: final_interval = 24
-                
-            if cl and vd:
-                ke = cl / vd
-                t_half = 0.693 / ke
-                ld = vd * target_peak
-                md = cl * target_peak * final_interval
-                
-        else:
-            # Antibiotic Logic
-            vd = drug_info["vd_l_kg"] * dosing_weight
-            cl = crcl * drug_info["cl_factor"] * 0.06
-            if cl and vd:
-                ke = cl / vd
-                t_half = 0.693 / ke
+        if selected_drug == 'Digoxin':
+            vd_factor = 7.3 if crcl >= 30 else 4.5
+            vd = vd_factor * ibw
+            cl = ((0.8 * ibw) + crcl) * 60 / 1000
+            if target_peak > 2.0: warnings.append("Digoxin target > 2.0 ng/mL increases toxicity risk.")
+            if interval == 0: final_interval = 24 if crcl >= 50 else (48 if crcl >= 20 else 72)
+        elif selected_drug == 'Procainamide':
+            vd = 2.0 * abw
+            cl = (180 + 3 * crcl) * 60 / 1000 if not is_hf else (90 + 1.5 * crcl) * 60 / 1000
+            if target_peak > 10.0: warnings.append("Procainamide target > 10 mcg/mL is associated with toxicity.")
+            if interval == 0: final_interval = 4 if crcl >= 50 else (6 if crcl >= 10 else 12)
+        elif selected_drug == 'Lidocaine':
+            vd = (0.9 if is_hf else 1.1) * abw
+            cl = (6.0 if is_hf else 10.0) * abw * 60 / 1000
+            final_interval = 1
+        elif selected_drug == 'Amiodarone':
+            vd = 60 * abw
+            cl = 0.12 * abw
+            if interval == 0: final_interval = 24
             
-            # Auto-interval logic
-            if interval == 0:
-                if crcl > 60: final_interval = 24
-                elif crcl > 40: final_interval = 36
-                elif crcl > 20: final_interval = 48
-                else: final_interval = 72
-            
-            if drug_info["class"] != "Beta-lactam":
-                ld = vd * target_peak
-                css_avg = (target_peak + target_trough) / 2
-                md = cl * css_avg * final_interval
-            else:
-                ld = 0
-                md = cl * 20 * final_interval # Generic approximation
-                
-        # Rounding
+        if cl and vd:
+            ke = cl / vd
+            t_half = 0.693 / ke
+            ld = vd * target_peak
+            md = cl * target_peak * final_interval
+
         if md > 0: md = round(md / 50) * 50 if md > 100 else round(md, 2)
         if ld > 0: ld = round(ld / 50) * 50 if ld > 100 else round(ld, 2)
 
-        # Display Results
         st.subheader("1. Core PK Parameters")
         rc1, rc2, rc3, rc4 = st.columns(4)
         rc1.metric("Creatinine Clearance", f"{crcl:.1f} mL/min")
@@ -256,13 +291,10 @@ with tab_results:
             rc4.metric("Half-life (t½)", f"{t_half:.1f} hrs")
 
         st.subheader("2. Individualized Dosage Regimen")
-        
-        regimen_text = ""
         if selected_drug == "Lidocaine":
             regimen_text = f"{selected_drug}: {md:.1f} mg/hr continuous infusion"
         else:
             regimen_text = f"{selected_drug}: {md:,.0f} mg q{final_interval}h"
-            
         st.markdown(f"""
         <div class="alert-box alert-success">
             <h4 style="margin-top:0;">✅ Recommended Regimen</h4>
@@ -273,22 +305,19 @@ with tab_results:
 
         for w in warnings:
             st.markdown(f"""<div class="alert-box alert-warning"><b>⚠️ Warning:</b> {w}</div>""", unsafe_allow_html=True)
-            
         if crcl < 30:
             st.markdown("""<div class="alert-box alert-danger"><b>🚨 Severe Renal Impairment Detected.</b> Consider dose reductions and close monitoring.</div>""", unsafe_allow_html=True)
 
-        # Save to session state for documentation tab
         st.session_state['last_pk'] = {
-            "drug": selected_drug, "age": age, "sex": sex, "abw": abw, "crcl": crcl, 
+            "drug": selected_drug, "age": age, "sex": sex, "abw": abw, "crcl": crcl,
             "vd": vd, "ke": ke, "t_half": t_half, "md": md, "interval": final_interval, "ld": ld,
-            "mode": calc_mode
+            "mode": calc_mode, "ibw": ibw, "bmi": bmi, "bsa": bsa, "lbw": lbw, "ajbw": ajbw
         }
 
 with tab_docs:
     st.subheader("Clinical Documentation (SOAP)")
     if 'last_pk' in st.session_state:
         pk = st.session_state['last_pk']
-        
         soap = f"""Subjective / Objective:
 Patient is a {pk['age']}yo {pk['sex']} presenting for {pk['drug']} therapy management.
 Wt: {pk['abw']}kg. Estimated CrCl: {pk['crcl']:.1f} mL/min.
@@ -305,11 +334,8 @@ Plan:
 """
         if pk['ld'] > 0:
             soap += f"2. Administer a one-time loading dose of {pk['ld']:,.0f} mg.\n"
-            
         soap += "\nMonitoring:\n- Check serum creatinine and electrolytes regularly.\n- Adjust based on clinical response and subsequent levels."
-        
         st.text_area("Generated EMR Note", value=soap, height=300)
-        
         if st.button("📋 Copy to Clipboard"):
             st.toast("Feature requires browser clipboard API.")
     else:
