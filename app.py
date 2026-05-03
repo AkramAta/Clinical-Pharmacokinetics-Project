@@ -218,6 +218,12 @@ with tab_setup:
             weight_note = "Actual Weight" if abw <= 1.2 * ibw else "Adjusted Weight (AjBW)"
             if abw < ibw: weight_note = "Actual Weight (below IBW)"
             st.info(f"💡 **Dosing Weight Used:** {dosing_weight:.2f} kg — _{weight_note}_")
+            st.markdown(
+                "**Weight selection rules**\n"
+                "- BMI 18.5–25: use Ideal Body Weight (IBW)\n"
+                "- BMI > 25: use Adjusted Body Weight (AdjBW)\n"
+                "- BMI < 18.5: use Actual Body Weight\n"
+            )
 
     # ===== CREATININE CLEARANCE SUMMARY =====
     crcl_abw = calc_crcl(age, abw, sex, scr)
@@ -291,6 +297,33 @@ with tab_setup:
         drug_info = DRUG_DB[selected_drug]
         st.markdown(f"**Drug Class:** `{drug_info['class']}`")
         calc_mode = st.radio("Calculation Type", ["Initial regimen", "Dose adjustment"], horizontal=True)
+        initial_method = None
+        route = None
+        css = vd_input = cl_input = dose_input = conc_input = None
+        dose_adjust_old = None
+        child_pugh_score = None
+
+        if calc_mode == "Initial regimen":
+            initial_method = st.selectbox(
+                "Select Initial Input",
+                ["Pharmacokinetics parameter", "Literature"],
+                help="Choose whether to calculate from PK parameters or use published literature values."
+            )
+            if initial_method == "Pharmacokinetics parameter" or (selected_drug == "Amiodarone" and initial_method == "Literature"):
+                route = st.selectbox("Route of administration", ["Oral", "IV Continuous Infusion"])
+            if initial_method == "Pharmacokinetics parameter":
+                st.markdown("**Pharmacokinetics parameter inputs**")
+                p1, p2, p3 = st.columns(3)
+                css = p1.number_input("Css (steady-state concentration)", value=1.0, format="%.2f")
+                vd_input = p2.number_input("Vd (L)", value=50.0, format="%.1f")
+                cl_input = p3.number_input("Cl (L/hr)", value=5.0, format="%.2f")
+                p4, p5 = st.columns(2)
+                dose_input = p4.number_input("Dose", value=100.0, format="%.1f")
+                conc_input = p5.number_input("Concentration for Vd formula", value=1.0, format="%.2f")
+        else:
+            dose_adjust_old = st.number_input("Dose old", min_value=0.0, value=100.0, step=0.1)
+            child_pugh_score = st.number_input("Child Pugh score", min_value=1, max_value=15, value=6)
+
         st.divider()
         
         st.markdown(f"""
@@ -322,6 +355,50 @@ with tab_results:
         vd = cl = t_half = ld = md = ke = 0.0
         final_interval = interval
         warnings = []
+        dose_adjustment_mode = calc_mode == "Dose adjustment"
+        literature_mode = calc_mode == "Initial regimen" and initial_method == "Literature"
+        pk_param_mode = calc_mode == "Initial regimen" and initial_method == "Pharmacokinetics parameter"
+        literature_amiodarone = literature_mode and selected_drug == "Amiodarone"
+        route = route or "Oral"
+
+        if dose_adjustment_mode:
+            if child_pugh_score in [8, 9]:
+                new_dose = dose_adjust_old * 0.75
+                adjustment_text = f"Dose new = {dose_adjust_old:.2f} × 0.75 = {new_dose:.2f}"
+            elif child_pugh_score >= 10:
+                new_dose = dose_adjust_old * 0.5
+                adjustment_text = f"Dose new = {dose_adjust_old:.2f} × 0.5 = {new_dose:.2f}"
+            else:
+                new_dose = None
+                adjustment_text = "No need to adjust the old dose."
+
+            st.subheader("🧾 Dose Adjustment Recommendation")
+            st.markdown(f"""
+            <div class="alert-box alert-info">
+                <p><strong>Old dose:</strong> {dose_adjust_old:.2f}</p>
+                <p><strong>Child-Pugh score:</strong> {child_pugh_score}</p>
+                <p><strong>Recommendation:</strong> {adjustment_text}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        if pk_param_mode:
+            if route == "IV Continuous Infusion":
+                ld_pk = css * vd_input if css and vd_input else 0
+                md_pk = css * cl_input if css and cl_input else 0
+                t_half_pk = 0.693 * vd_input / cl_input if cl_input else 0
+                vd_calc = dose_input / conc_input if conc_input else 0
+                st.subheader("⚙️ PK Parameter Derived Outputs")
+                st.markdown(f"""
+                <div class="alert-box alert-success">
+                    <p><strong>LD = Css × Vd</strong> = {css:.2f} × {vd_input:.2f} = {ld_pk:.2f}</p>
+                    <p><strong>MD = Css × Cl</strong> = {css:.2f} × {cl_input:.2f} = {md_pk:.2f}</p>
+                    <p><strong>t½ = 0.693 × Vd / Cl</strong> = 0.693 × {vd_input:.2f} / {cl_input:.2f} = {t_half_pk:.2f}</p>
+                    <p><strong>Vd = dose / Conc</strong> = {dose_input:.2f} / {conc_input:.2f} = {vd_calc:.2f}</p>
+                    <p><strong>Cockcroft-Gault CrCl</strong> = ((140 − age) × weight) / (72 × Scr), multiply by 0.85 for females</p>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.info("Oral route selected in PK parameter mode. Use drug-specific clinical references to convert PK parameters into appropriate oral dosing regimens.")
 
         if selected_drug == 'Digoxin':
             vd_factor = 7.3 if crcl >= 30 else 4.5
@@ -448,6 +525,40 @@ with tab_results:
             rec_dose_str = maintenance_text
             admin_str = "IV or PO"
             interval_str = f"q{final_interval}h"
+
+            if literature_amiodarone:
+                if route == "Oral":
+                    maintenance_text = "MD = 200 - 400 mg/day"
+                    loading_text = "LD = 800 - 1600 mg/day"
+                    rec_dose_str = maintenance_text
+                    admin_str = "Oral"
+                    interval_str = "Daily"
+                else:
+                    maintenance_text = "MD = 0.5 mg/min"
+                    loading_text = "LD = 15 mg/min for the first 10 minutes, then 1 mg/min for 6 hours, then 0.5 mg/min for the remaining 18 hours"
+                    rec_dose_str = maintenance_text
+                    admin_str = "IV Continuous Infusion"
+                    interval_str = "Continuous"
+                    disp_vd = "N/A"
+                    disp_cl = "N/A"
+                    disp_thalf = "N/A"
+
+            if literature_amiodarone:
+                if route == "Oral":
+                    maintenance_text = "MD = 200 - 400 mg/day"
+                    loading_text = "LD = 800 - 1600 mg/day"
+                    rec_dose_str = maintenance_text
+                    admin_str = "Oral"
+                    interval_str = "Daily"
+                else:
+                    maintenance_text = "MD = 0.5 mg/min"
+                    loading_text = "LD = 15 mg/min for the first 10 minutes, then 1 mg/min for 6 hours, then 0.5 mg/min for the remaining 18 hours"
+                    rec_dose_str = maintenance_text
+                    admin_str = "IV Continuous Infusion"
+                    interval_str = "Continuous"
+                    disp_vd = "N/A"
+                    disp_cl = "N/A"
+                    disp_thalf = "N/A"
 
         st.subheader("1. Core PK Parameters")
         rc1, rc2, rc3, rc4 = st.columns(4)
