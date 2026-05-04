@@ -223,6 +223,7 @@ with tab_setup:
         bioavailability = 1.0
         thyroid_status = "Select Status"
         calculation_type = "Initial dosing"
+        renal_function = "Select Renal Function"
         
         # ===== DIGOXIN-SPECIFIC PARAMETERS =====
         if selected_drug == "Digoxin":
@@ -288,7 +289,7 @@ with tab_setup:
                     bioavailability = 1.0
                     d_col4.info("IV bioavailability = 1.0 (100% absorption)")
                 
-                # Thyroid Status
+                # Thyroid Status & Renal Function
                 d_col5, d_col6 = st.columns(2)
                 thyroid_status = d_col5.selectbox(
                     "Thyroid Status",
@@ -297,7 +298,15 @@ with tab_setup:
                     key="thyroid_status"
                 )
                 
-                calculation_type = d_col6.selectbox(
+                renal_function = d_col6.selectbox(
+                    "Renal Function",
+                    ["Select Renal Function", "Normal", "Mild", "Moderate", "Severe"],
+                    help="Renal function status for CrCl adjustment",
+                    key="digoxin_renal_function"
+                )
+                
+                # Calculation Type
+                calculation_type = st.selectbox(
                     "Calculation Type",
                     ["Initial dosing", "Dose adjustment", "Toxicity assessment", "Dosage form switching"],
                     help="Type of pharmacokinetic calculation",
@@ -535,9 +544,8 @@ with tab_results:
                 validation_errors.append("❌ Please select Oral Dosage Form (Tablet, Elixir, or Capsule)")
             if thyroid_status == "Select Status":
                 validation_errors.append("❌ Please select Thyroid Status (Normal or Hyperthyroidism)")
-            if calculation_type == "Initial dosing":
-                if initial_method is None:
-                    validation_errors.append("❌ Please select Initial Input method (Pharmacokinetics parameter or Literature)")
+            if renal_function == "Select Renal Function":
+                validation_errors.append("❌ Please select Renal Function (Normal, Mild, Moderate, or Severe)")
             
             if validation_errors:
                 st.error("⚠️ **Please complete all required Digoxin parameters:**")
@@ -1181,6 +1189,7 @@ with tab_results:
             "digoxin_clnr": clnr if selected_drug == "Digoxin" else None,
             "digoxin_md_raw": md_raw if selected_drug == "Digoxin" else None,
             "digoxin_is_obese": digoxin_is_obese if selected_drug == "Digoxin" else None,
+            "renal_function": renal_function if selected_drug == "Digoxin" else None,
             # Procainamide-specific parameters
             "p_route": p_route if selected_drug == "Procainamide" else None,
             "p_bioavailability": p_bioavailability if selected_drug == "Procainamide" else None,
