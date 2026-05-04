@@ -196,6 +196,138 @@ with tab_setup:
 
         is_hf = st.checkbox("Patient has Congestive Heart Failure (CHF)")
 
+    st.divider()
+
+    # ===== THERAPY SELECTION (moved before drug-specific parameters) =====
+    st.subheader("💊 Therapy Selection")
+    with st.container(border=True):
+        available_drugs = list(DRUG_DB.keys())
+        selected_drug = st.selectbox("Select Drug", available_drugs)
+        drug_info = DRUG_DB[selected_drug]
+        st.markdown(f"**Drug Class:** `{drug_info['class']}`")
+        
+        calc_mode = st.radio("Calculation Type", ["Initial regimen", "Dose adjustment"], horizontal=True)
+        initial_method = None
+        route = None
+        css = vd_input = cl_input = dose_input = conc_input = None
+        dose_adjust_old = None
+        child_pugh_score = None
+        
+        # Initialize Digoxin-specific variables
+        indication = "Select Indication"
+        hf_severity = None
+        css_initial = None
+        crcl_hf_adjustment = None
+        route_of_admin = "Select Route"
+        dosage_form = "IV"
+        bioavailability = 1.0
+        thyroid_status = "Select Status"
+        calculation_type = "Initial dosing"
+        
+        # ===== DIGOXIN-SPECIFIC PARAMETERS =====
+        if selected_drug == "Digoxin":
+            st.markdown("---")
+            st.subheader("🔧 Digoxin-Specific Parameters")
+            with st.container(border=True):
+                d_col1, d_col2 = st.columns(2)
+                
+                indication = d_col1.selectbox(
+                    "Indication",
+                    ["Select Indication", "Heart Failure", "Atrial Fibrillation"],
+                    help="Select the clinical indication for Digoxin",
+                    key="digoxin_indication"
+                )
+                
+                if indication == "Heart Failure":
+                    hf_severity = d_col2.selectbox(
+                        "Heart Failure Severity",
+                        ["Select Severity", "Mild", "Moderate", "Severe"],
+                        help="Severity affects renal clearance adjustment",
+                        key="hf_severity"
+                    )
+                    css_initial = 0.8
+                    
+                    # Logic for HF severity → CrCl adjustment
+                    if hf_severity == "Mild":
+                        crcl_hf_adjustment = 40
+                    elif hf_severity == "Moderate":
+                        crcl_hf_adjustment = 20
+                    elif hf_severity == "Severe":
+                        crcl_hf_adjustment = 20
+                        
+                elif indication == "Atrial Fibrillation":
+                    d_col2.info("No severity selection needed for Atrial Fibrillation")
+                    css_initial = 1.2
+                
+                # Route of Administration & Bioavailability
+                d_col3, d_col4 = st.columns(2)
+                
+                route_of_admin = d_col3.selectbox(
+                    "Route of Administration",
+                    ["Select Route", "Oral", "IV"],
+                    help="Choose Oral or IV administration",
+                    key="route_of_admin"
+                )
+                
+                if route_of_admin == "Oral":
+                    dosage_form = d_col4.selectbox(
+                        "Oral Dosage Form",
+                        ["Select Form", "Tablet", "Elixir", "Capsule"],
+                        help="Different oral forms have different bioavailability",
+                        key="dosage_form"
+                    )
+                    
+                    # Set bioavailability based on form
+                    if dosage_form == "Tablet":
+                        bioavailability = 0.7
+                    elif dosage_form == "Elixir":
+                        bioavailability = 0.8
+                    elif dosage_form == "Capsule":
+                        bioavailability = 0.9
+                elif route_of_admin == "IV":
+                    bioavailability = 1.0
+                    d_col4.info("IV bioavailability = 1.0 (100% absorption)")
+                
+                # Thyroid Status
+                d_col5, d_col6 = st.columns(2)
+                thyroid_status = d_col5.selectbox(
+                    "Thyroid Status",
+                    ["Select Status", "Normal", "Hyperthyroidism"],
+                    help="Thyroid status affects Digoxin metabolism",
+                    key="thyroid_status"
+                )
+                
+                calculation_type = d_col6.selectbox(
+                    "Calculation Type",
+                    ["Initial dosing", "Dose adjustment", "Toxicity assessment", "Dosage form switching"],
+                    help="Type of pharmacokinetic calculation",
+                    key="calculation_type"
+                )
+        else:
+            # Standard input for non-Digoxin drugs
+            if calc_mode == "Initial regimen":
+                initial_method = st.selectbox(
+                    "Select Initial Input",
+                    ["Pharmacokinetics parameter", "Literature"],
+                    help="Choose whether to calculate from PK parameters or use published literature values."
+                )
+                if initial_method == "Pharmacokinetics parameter" or (selected_drug == "Amiodarone" and initial_method == "Literature"):
+                    route = st.selectbox("Route of administration", ["Oral", "IV Continuous Infusion"])
+                if initial_method == "Pharmacokinetics parameter":
+                    st.markdown("**Pharmacokinetics parameter inputs**")
+                    p1, p2, p3 = st.columns(3)
+                    css = p1.number_input("Css (steady-state concentration)", value=1.0, format="%.2f")
+                    vd_input = p2.number_input("Vd (L)", value=50.0, format="%.1f")
+                    cl_input = p3.number_input("Cl (L/hr)", value=5.0, format="%.2f")
+                    p4, p5 = st.columns(2)
+                    dose_input = p4.number_input("Dose", value=100.0, format="%.1f")
+                    conc_input = p5.number_input("Concentration for Vd formula", value=1.0, format="%.2f")
+            else:
+                dose_adjust_old = st.number_input("Dose old", min_value=0.0, value=100.0, step=0.1)
+                child_pugh_score = st.number_input("Child Pugh score", min_value=1, max_value=15, value=6)
+
+    st.divider()
+
     # ===== AUTO-ANALYSIS SECTION =====
     ibw = calc_ibw(sex, height_cm)
     bmi = calc_bmi(abw, height_cm)
@@ -289,68 +421,54 @@ with tab_setup:
 
     st.divider()
 
-    # ===== THERAPY SELECTION =====
-    st.subheader("💊 Therapy Selection")
-    with st.container(border=True):
-        available_drugs = list(DRUG_DB.keys())
-        selected_drug = st.selectbox("Select Drug", available_drugs)
-        drug_info = DRUG_DB[selected_drug]
-        st.markdown(f"**Drug Class:** `{drug_info['class']}`")
-        calc_mode = st.radio("Calculation Type", ["Initial regimen", "Dose adjustment"], horizontal=True)
-        initial_method = None
-        route = None
-        css = vd_input = cl_input = dose_input = conc_input = None
-        dose_adjust_old = None
-        child_pugh_score = None
-
-        if calc_mode == "Initial regimen":
-            initial_method = st.selectbox(
-                "Select Initial Input",
-                ["Pharmacokinetics parameter", "Literature"],
-                help="Choose whether to calculate from PK parameters or use published literature values."
-            )
-            if initial_method == "Pharmacokinetics parameter" or (selected_drug == "Amiodarone" and initial_method == "Literature"):
-                route = st.selectbox("Route of administration", ["Oral", "IV Continuous Infusion"])
-            if initial_method == "Pharmacokinetics parameter":
-                st.markdown("**Pharmacokinetics parameter inputs**")
-                p1, p2, p3 = st.columns(3)
-                css = p1.number_input("Css (steady-state concentration)", value=1.0, format="%.2f")
-                vd_input = p2.number_input("Vd (L)", value=50.0, format="%.1f")
-                cl_input = p3.number_input("Cl (L/hr)", value=5.0, format="%.2f")
-                p4, p5 = st.columns(2)
-                dose_input = p4.number_input("Dose", value=100.0, format="%.1f")
-                conc_input = p5.number_input("Concentration for Vd formula", value=1.0, format="%.2f")
-        else:
-            dose_adjust_old = st.number_input("Dose old", min_value=0.0, value=100.0, step=0.1)
-            child_pugh_score = st.number_input("Child Pugh score", min_value=1, max_value=15, value=6)
-
-        st.divider()
-        
-        st.markdown(f"""
-        <div class='selected-eq-box' style='background-color: #f0f9ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #0ea5e9;'>
-            <p class='eq-title' style='margin:0; font-weight:600; color:#0f172a;'>Selected Equation: <span class='eq-name' style='color:#0284c7;'>{equation_name}</span></p>
-            <p class='eq-reason' style='margin:5px 0 0 0; font-size:0.9em; color:#475569;'>Reason: {reason}</p>
-            <p class='eq-value' style='margin:5px 0 0 0; font-weight:700; color:#0369a1;'>CrCl: {selected_crcl:.1f} mL/min</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        t1, t2 = st.columns(2)
-        target_unit = "µg/mL"
-        if selected_drug == "Digoxin": target_unit = "ng/mL"
-        elif selected_drug == "Amiodarone": target_unit = "mg/L"
-        
-        target_peak = t1.number_input(f"Target Peak ({target_unit})", value=float(drug_info["target_peak"]))
-        target_trough = t2.number_input(f"Target Trough ({target_unit})", value=float(drug_info["target_trough"])) if drug_info["target_trough"] > 0 else 0
-        st.markdown("**Preferences & Monitoring**")
-        m1, m2 = st.columns(2)
-        interval = m1.number_input("Preferred Dosing Interval (hrs) [0 = Auto]", min_value=0, value=0, step=12)
-        measured_level = m2.number_input(f"Measured Level ({target_unit}) [0 = Skip]", min_value=0.0, value=0.0, step=0.1)
+    st.markdown(f"""
+    <div class='selected-eq-box' style='background-color: #f0f9ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #0ea5e9;'>
+        <p class='eq-title' style='margin:0; font-weight:600; color:#0f172a;'>Selected Equation: <span class='eq-name' style='color:#0284c7;'>{equation_name}</span></p>
+        <p class='eq-reason' style='margin:5px 0 0 0; font-size:0.9em; color:#475569;'>Reason: {reason}</p>
+        <p class='eq-value' style='margin:5px 0 0 0; font-weight:700; color:#0369a1;'>CrCl: {selected_crcl:.1f} mL/min</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    t1, t2 = st.columns(2)
+    target_unit = "µg/mL"
+    if selected_drug == "Digoxin": target_unit = "ng/mL"
+    elif selected_drug == "Amiodarone": target_unit = "mg/L"
+    
+    target_peak = t1.number_input(f"Target Peak ({target_unit})", value=float(drug_info["target_peak"]))
+    target_trough = t2.number_input(f"Target Trough ({target_unit})", value=float(drug_info["target_trough"])) if drug_info["target_trough"] > 0 else 0
+    st.markdown("**Preferences & Monitoring**")
+    m1, m2 = st.columns(2)
+    interval = m1.number_input("Preferred Dosing Interval (hrs) [0 = Auto]", min_value=0, value=0, step=12)
+    measured_level = m2.number_input(f"Measured Level ({target_unit}) [0 = Skip]", min_value=0.0, value=0.0, step=0.1)
 
     # Use automatically selected CrCl for downstream PK
     crcl = selected_crcl
 
 with tab_results:
     if st.button("🚀 Process Pharmacokinetics", type="primary", use_container_width=True):
+        # Validation for Digoxin-specific parameters
+        if selected_drug == "Digoxin":
+            validation_errors = []
+            if indication == "Select Indication":
+                validation_errors.append("❌ Please select an Indication (Heart Failure or Atrial Fibrillation)")
+            if indication == "Heart Failure" and hf_severity == "Select Severity":
+                validation_errors.append("❌ Please select Heart Failure Severity (Mild, Moderate, or Severe)")
+            if route_of_admin == "Select Route":
+                validation_errors.append("❌ Please select Route of Administration (Oral or IV)")
+            if route_of_admin == "Oral" and dosage_form == "Select Form":
+                validation_errors.append("❌ Please select Oral Dosage Form (Tablet, Elixir, or Capsule)")
+            if thyroid_status == "Select Status":
+                validation_errors.append("❌ Please select Thyroid Status (Normal or Hyperthyroidism)")
+            if calculation_type == "Initial dosing":
+                if initial_method is None:
+                    validation_errors.append("❌ Please select Initial Input method (Pharmacokinetics parameter or Literature)")
+            
+            if validation_errors:
+                st.error("⚠️ **Please complete all required Digoxin parameters:**")
+                for error in validation_errors:
+                    st.write(error)
+                st.stop()
+        
         st.divider()
         vd = cl = t_half = ld = md = ke = 0.0
         final_interval = interval
@@ -401,11 +519,41 @@ with tab_results:
                 st.info("Oral route selected in PK parameter mode. Use drug-specific clinical references to convert PK parameters into appropriate oral dosing regimens.")
 
         if selected_drug == 'Digoxin':
-            vd_factor = 7.3 if crcl >= 30 else 4.5
+            # Apply HF severity-based CrCl adjustment if applicable
+            adjusted_crcl = crcl
+            if indication == "Heart Failure" and crcl_hf_adjustment and hf_severity and hf_severity != "Select Severity":
+                # For HF patients, use adjusted clearance
+                adjusted_crcl = max(crcl_hf_adjustment, crcl)  # Use whichever is lower for conservative dosing
+                st.info(f"💊 **Digoxin + {hf_severity} HF**: Using conservative CrCl adjustment to {adjusted_crcl:.1f} mL/min")
+            
+            # Use indication-based CSS if selected
+            if indication == "Heart Failure" and css_initial:
+                target_peak = css_initial  # 0.8 ng/mL for HF
+                target_trough = 0  # Remove peak/trough for steady-state dosing
+            elif indication == "Atrial Fibrillation" and css_initial:
+                target_peak = css_initial  # 1.2 ng/mL for AFib
+                target_trough = 0  # Remove peak/trough for steady-state dosing
+            
+            # Calculate VD and CL with bioavailability factor
+            vd_factor = 7.3 if adjusted_crcl >= 30 else 4.5
             vd = vd_factor * ibw
-            cl = ((0.8 * ibw) + crcl) * 60 / 1000
-            if target_peak > 2.0: warnings.append("Digoxin target > 2.0 ng/mL increases toxicity risk.")
-            if interval == 0: final_interval = 24 if crcl >= 50 else (48 if crcl >= 20 else 72)
+            
+            # Clearance adjusted for renal function
+            cl = ((0.8 * ibw) + adjusted_crcl) * 60 / 1000
+            
+            # Apply bioavailability adjustment
+            if route_of_admin == "Oral":
+                cl = cl * bioavailability  # Effective clearance with bioavailability factor
+            
+            # Apply thyroid status adjustment (hyperthyroidism → increased metabolism)
+            if thyroid_status == "Hyperthyroidism":
+                cl = cl * 1.5  # Increased clearance due to increased metabolism
+                st.warning("⚠️ **Hyperthyroidism detected**: Digoxin clearance increased by 50%. Higher maintenance doses may be needed.")
+            
+            if target_peak > 2.0: 
+                warnings.append("Digoxin target > 2.0 ng/mL increases toxicity risk.")
+            if interval == 0: 
+                final_interval = 24 if adjusted_crcl >= 50 else (48 if adjusted_crcl >= 20 else 72)
         elif selected_drug == 'Procainamide':
             vd = 2.0 * abw
             cl = (180 + 3 * crcl) * 60 / 1000 if not is_hf else (90 + 1.5 * crcl) * 60 / 1000
@@ -858,7 +1006,15 @@ with tab_results:
             "drug": selected_drug, "age": age, "sex": sex, "abw": abw, "crcl": crcl,
             "vd": vd, "ke": ke, "t_half": t_half, "md": md, "interval": final_interval, "ld": ld,
             "mode": calc_mode, "ibw": ibw, "bmi": bmi, "bsa": bsa, "lbw": lbw, "ajbw": ajbw,
-            "drug_card_html": drug_card_html
+            "drug_card_html": drug_card_html,
+            # Digoxin-specific parameters
+            "indication": indication if selected_drug == "Digoxin" else None,
+            "hf_severity": hf_severity if selected_drug == "Digoxin" else None,
+            "route_of_admin": route_of_admin if selected_drug == "Digoxin" else None,
+            "dosage_form": dosage_form if selected_drug == "Digoxin" else None,
+            "bioavailability": bioavailability if selected_drug == "Digoxin" else None,
+            "thyroid_status": thyroid_status if selected_drug == "Digoxin" else None,
+            "calculation_type": calculation_type if selected_drug == "Digoxin" else None,
         }
 
 with tab_docs:
@@ -867,6 +1023,97 @@ with tab_docs:
         pk = st.session_state['last_pk']
         st.markdown(pk['drug_card_html'], unsafe_allow_html=True)
         
+        # Digoxin-specific documentation
+        if pk['drug'] == "Digoxin" and pk['indication']:
+            st.markdown("---")
+            st.subheader("📋 Digoxin-Specific Clinical Parameters")
+            
+            with st.container(border=True):
+                doc_col1, doc_col2 = st.columns(2)
+                
+                with doc_col1:
+                    st.markdown("**Clinical Indication**")
+                    if pk['indication'] == "Heart Failure":
+                        severity_text = f"{pk['hf_severity']} Severity" if pk['hf_severity'] else "Not specified"
+                        st.write(f"🫀 Heart Failure - {severity_text}")
+                        st.markdown(f"- **Target Css**: 0.8 ng/mL")
+                    else:
+                        st.write(f"🫀 {pk['indication']}")
+                        st.markdown(f"- **Target Css**: 1.2 ng/mL")
+                
+                with doc_col2:
+                    st.markdown("**Route & Bioavailability**")
+                    if pk['route_of_admin'] == "Oral":
+                        st.write(f"💊 {pk['dosage_form']} (F = {pk['bioavailability']})")
+                        bioavail_pct = pk['bioavailability'] * 100
+                        st.markdown(f"- **Bioavailability**: {bioavail_pct:.0f}%")
+                    else:
+                        st.write(f"💉 IV (F = 1.0)")
+                        st.markdown(f"- **Bioavailability**: 100%")
+                
+                doc_col3, doc_col4 = st.columns(2)
+                
+                with doc_col3:
+                    st.markdown("**Thyroid Status**")
+                    if pk['thyroid_status'] == "Hyperthyroidism":
+                        st.write(f"⚠️ {pk['thyroid_status']}")
+                        st.markdown(f"- **Clearance Adjustment**: ×1.5 (increased metabolism)")
+                    else:
+                        st.write(f"✅ {pk['thyroid_status']}")
+                        st.markdown(f"- **Clearance Adjustment**: Normal")
+                
+                with doc_col4:
+                    st.markdown("**Calculation Type**")
+                    st.write(f"📊 {pk['calculation_type'].title()}")
+            
+            # Detailed recommendations based on parameters
+            st.markdown("---")
+            st.markdown("### 🎯 Personalized Recommendations")
+            
+            recommendations = []
+            
+            # Indication-based recommendations
+            if pk['indication'] == "Heart Failure":
+                recommendations.append(
+                    f"**Heart Failure ({pk['hf_severity']})**: "
+                    f"Target steady-state concentration = 0.8 ng/mL for symptom control"
+                )
+                if pk['hf_severity'] == "Severe":
+                    recommendations.append(
+                        "⚠️ **Severe HF**: Monitor closely for toxicity; consider more frequent serum level checks"
+                    )
+            else:
+                recommendations.append(
+                    "**Atrial Fibrillation**: "
+                    "Target steady-state concentration = 1.2 ng/mL for rate control"
+                )
+            
+            # Route and bioavailability recommendations
+            if pk['route_of_admin'] == "Oral":
+                if pk['bioavailability'] < 0.8:
+                    recommendations.append(
+                        f"**{pk['dosage_form']} (F={pk['bioavailability']})**: "
+                        f"Lower bioavailability requires adjustment of oral doses; ensure consistent formulation"
+                    )
+                elif pk['bioavailability'] > 0.8:
+                    recommendations.append(
+                        f"**{pk['dosage_form']} (F={pk['bioavailability']})**: "
+                        f"Higher bioavailability may require dose reduction compared to tablets"
+                    )
+            else:
+                recommendations.append(
+                    "**IV Administration**: 100% bioavailability; use for acute loading or when oral route unavailable"
+                )
+            
+            # Thyroid status recommendations
+            if pk['thyroid_status'] == "Hyperthyroidism":
+                recommendations.append(
+                    "⚠️ **Hyperthyroidism Alert**: Digoxin clearance is increased; higher maintenance doses required; "
+                    "recheck levels 5-7 days after thyroid status normalization"
+                )
+            
+            for i, rec in enumerate(recommendations, 1):
+                st.markdown(f"{i}. {rec}")
 
     else:
         st.info("Process a calculation in the Dosing tab first to generate documentation.")
