@@ -304,7 +304,78 @@ with tab_setup:
                     key="calculation_type"
                 )
         else:
-            # Standard input for non-Digoxin drugs
+            # ===== PROCAINAMIDE-SPECIFIC PARAMETERS =====
+            if selected_drug == "Procainamide":
+                st.markdown("---")
+                st.subheader("🔧 Procainamide-Specific Parameters")
+                with st.container(border=True):
+                    # Route of Administration
+                    p_col1, p_col2 = st.columns(2)
+                    
+                    p_route = p_col1.radio(
+                        "Route of Administration",
+                        ["IV", "Oral", "IM"],
+                        horizontal=True,
+                        key="procainamide_route"
+                    )
+                    
+                    # Set bioavailability based on route
+                    p_bioavailability = 1.0
+                    if p_route == "Oral":
+                        p_bioavailability = 0.85
+                    # IV and IM both have F=1
+                    
+                    p_col2.info(f"**Bioavailability (F):** {p_bioavailability}")
+                    
+                    # Indication
+                    p_col3, p_col4 = st.columns(2)
+                    
+                    p_indication = p_col3.radio(
+                        "Indication",
+                        ["Atrial", "Ventricular"],
+                        horizontal=True,
+                        key="procainamide_indication"
+                    )
+                    
+                    # Acetylator Status
+                    p_acetylator = p_col4.radio(
+                        "Acetylator Status",
+                        ["Fast", "Slow", "Unknown"],
+                        horizontal=True,
+                        key="procainamide_acetylator"
+                    )
+                    
+                    # Measured NAPA level (optional)
+                    st.markdown("**Measured Levels (Optional)**")
+                    n1, n2 = st.columns(2)
+                    
+                    measured_procainamide = n1.number_input(
+                        "Measured Procainamide Level (mcg/mL)",
+                        min_value=0.0,
+                        value=0.0,
+                        step=0.1,
+                        help="Enter measured procainamide level, 0 to skip",
+                        key="measured_procainamide"
+                    )
+                    
+                    measured_napa = n2.number_input(
+                        "Measured NAPA Level (mcg/mL)",
+                        min_value=0.0,
+                        value=0.0,
+                        step=0.1,
+                        help="Enter measured NAPA level, 0 to skip",
+                        key="measured_napa"
+                    )
+            else:
+                # Initialize Procainamide variables for non-Procainamide drugs
+                p_route = None
+                p_bioavailability = 1.0
+                p_indication = None
+                p_acetylator = None
+                measured_procainamide = 0.0
+                measured_napa = 0.0
+            
+            # Standard input for non-Digoxin, non-Procainamide drugs
             if calc_mode == "Initial regimen":
                 initial_method = st.selectbox(
                     "Select Initial Input",
@@ -557,8 +628,27 @@ with tab_results:
         elif selected_drug == 'Procainamide':
             vd = 2.0 * abw
             cl = (180 + 3 * crcl) * 60 / 1000 if not is_hf else (90 + 1.5 * crcl) * 60 / 1000
+            
+            # Apply bioavailability factor
+            p_bioavailability = 1.0 if p_route in ["IV", "IM"] else 0.85
+            
+            # Apply Procainamide formulas with bioavailability
+            # LD = (Ctarget × Vd) ÷ F
+            # MD = (CL × Css × dosing interval) ÷ F
+            ld_calc = (target_peak * vd) / p_bioavailability
+            md_calc = (cl * target_peak * final_interval) / p_bioavailability
+            
+            # Special rule: Oral loading not recommended
+            if p_route == "Oral":
+                ld = None  # Mark as unavailable for oral
+                md = md_calc
+                final_interval = 6  # Typical oral dosing interval (6 hours)
+            else:
+                ld = ld_calc
+                md = md_calc
+                final_interval = 1  # Force continuous IV infusion
+            
             if target_peak > 10.0: warnings.append("Procainamide target > 10 µg/mL is associated with toxicity.")
-            final_interval = 1  # Force continuous IV infusion
         elif selected_drug == 'Lidocaine':
             vd = (0.9 if is_hf else 1.1) * abw
             cl = (6.0 if is_hf else 10.0) * abw * 60 / 1000
@@ -644,7 +734,11 @@ with tab_results:
                 validation_color = "alert-warning"
 
             maintenance_text = f"{md:.1f} mg/hr (IV infusion)"
-            loading_text = f"{ld:,.0f} mg once" if ld > 0 else "None"
+            # Handle oral loading N/A for Procainamide
+            if isinstance(ld, str) or ld is None:
+                loading_text = ld if isinstance(ld, str) else "None"
+            else:
+                loading_text = f"{ld:,.0f} mg once" if ld > 0 else "None"
             rec_dose_str = f"{md:.1f} mg/hr"
             admin_str = "IV Infusion"
             interval_str = "Continuous"
@@ -1015,6 +1109,13 @@ with tab_results:
             "bioavailability": bioavailability if selected_drug == "Digoxin" else None,
             "thyroid_status": thyroid_status if selected_drug == "Digoxin" else None,
             "calculation_type": calculation_type if selected_drug == "Digoxin" else None,
+            # Procainamide-specific parameters
+            "p_route": p_route if selected_drug == "Procainamide" else None,
+            "p_bioavailability": p_bioavailability if selected_drug == "Procainamide" else None,
+            "p_indication": p_indication if selected_drug == "Procainamide" else None,
+            "p_acetylator": p_acetylator if selected_drug == "Procainamide" else None,
+            "measured_procainamide": measured_procainamide if selected_drug == "Procainamide" else None,
+            "measured_napa": measured_napa if selected_drug == "Procainamide" else None,
         }
 
 with tab_docs:
@@ -1114,6 +1215,137 @@ with tab_docs:
             
             for i, rec in enumerate(recommendations, 1):
                 st.markdown(f"{i}. {rec}")
+        
+        # Procainamide-specific documentation
+        elif pk['drug'] == "Procainamide" and pk['p_indication']:
+            st.markdown("---")
+            st.subheader("📋 Procainamide-Specific Clinical Parameters")
+            
+            with st.container(border=True):
+                # Route & Bioavailability
+                p_col1, p_col2 = st.columns(2)
+                
+                with p_col1:
+                    st.markdown("**Route of Administration**")
+                    st.write(f"💊 {pk['p_route']}")
+                    st.markdown(f"- **Bioavailability (F)**: {pk['p_bioavailability']}")
+                    if pk['p_route'] == "Oral":
+                        st.markdown("- ⚠️ **Oral Loading**: N/A (not recommended)")
+                
+                with p_col2:
+                    st.markdown("**Clinical Indication**")
+                    if pk['p_indication'] == "Ventricular":
+                        st.write(f"🫀 {pk['p_indication']} Arrhythmia")
+                        st.markdown("- **Risk Level**: High")
+                        st.markdown("- **Monitoring**: Continuous ECG (consider ICU)")
+                        st.markdown("- **Dosing**: Upper therapeutic range (6-10 mcg/mL) with caution")
+                        st.markdown("- **Alert Priority**: Focus on QRS widening (conduction risk)")
+                    else:
+                        st.write(f"🫀 {pk['p_indication']} Arrhythmia")
+                        st.markdown("- **Risk Level**: Moderate")
+                        st.markdown("- **Monitoring**: Standard ECG monitoring")
+                        st.markdown("- **Dosing**: Lower therapeutic range (4-8 mcg/mL)")
+                        st.markdown("- **Alert Priority**: Focus on QT prolongation (torsades risk)")
+                
+                # Acetylator Status
+                p_col3, p_col4 = st.columns(2)
+                
+                with p_col3:
+                    st.markdown("**Acetylator Status**")
+                    if pk['p_acetylator'] == "Fast":
+                        st.write(f"⚡ {pk['p_acetylator']} Acetylator")
+                        st.markdown("- **Metabolism**: ↑ NAPA / ↓ Procainamide")
+                    elif pk['p_acetylator'] == "Slow":
+                        st.write(f"🐢 {pk['p_acetylator']} Acetylator")
+                        st.markdown("- **Metabolism**: ↑ Procainamide / ↓ NAPA")
+                    else:
+                        st.write(f"❓ {pk['p_acetylator']} Acetylator Status")
+                        st.markdown("- **Metabolism**: Uncertain — monitor both levels closely")
+                
+                # Measured Levels
+                with p_col4:
+                    st.markdown("**Measured Serum Levels**")
+                    if pk['measured_procainamide'] > 0:
+                        st.write(f"**Procainamide**: {pk['measured_procainamide']:.1f} mcg/mL")
+                        if 4 <= pk['measured_procainamide'] <= 10:
+                            st.success("✅ OK (4-10 range)")
+                        else:
+                            st.error("⚠️ Toxicity start (>10)")
+                    
+                    if pk['measured_napa'] > 0:
+                        st.write(f"**NAPA**: {pk['measured_napa']:.1f} mcg/mL")
+                        if 12 <= pk['measured_napa'] <= 18:
+                            st.success("✅ OK (12-18 range)")
+                        elif pk['measured_napa'] >= 40:
+                            st.error("🔴 Toxic (≥40)")
+                    
+                    # Total calculation
+                    if pk['measured_procainamide'] > 0 and pk['measured_napa'] > 0:
+                        total_level = pk['measured_procainamide'] + pk['measured_napa']
+                        st.write(f"**Total**: {total_level:.1f} mcg/mL")
+                        if 5 <= total_level <= 30:
+                            st.success("✅ Acceptable (5-30 range)")
+                        else:
+                            st.warning("⚠️ Outside acceptable range")
+            
+            # Detailed indication-based recommendations
+            st.markdown("---")
+            st.markdown("### 🎯 Personalized Clinical Guidance")
+            
+            if pk['p_indication'] == "Ventricular":
+                st.markdown("""
+                **🔴 High-Risk Ventricular Arrhythmia Protocol:**
+                1. **Continuous cardiac monitoring** - ICU environment recommended
+                2. **Target concentration**: Upper therapeutic range (6-10 mcg/mL) with caution
+                3. **Primary concern**: QRS widening (proarrhythmic effect from conduction slowing)
+                4. **Monitoring focus**: 
+                   - Track QRS duration on every ECG
+                   - If QRS > 50% of baseline or >120 ms → consider dose reduction
+                   - Monitor for arrhythmia acceleration
+                5. **Metabolite consideration**: Both procainamide and NAPA affect conduction
+                """)
+            else:
+                st.markdown("""
+                **🟡 Moderate-Risk Atrial Arrhythmia Protocol:**
+                1. **Standard ECG monitoring** - daily for first 3-5 days, then weekly
+                2. **Target concentration**: Lower therapeutic range (4-8 mcg/mL)
+                3. **Primary concern**: QT prolongation (risk of torsades de pointes)
+                4. **Monitoring focus**:
+                   - Measure QTc interval baseline and at 2-3 days
+                   - If QTc prolongs >60 ms from baseline → reconsider therapy
+                   - Monitor electrolytes (K⁺, Mg²⁺, Ca²⁺) weekly
+                5. **Metabolite consideration**: NAPA can also prolong QT
+                """)
+            
+            # Acetylator-specific guidance
+            st.markdown("---")
+            st.markdown("### 💊 Acetylator Phenotype Guidance")
+            
+            if pk['p_acetylator'] == "Fast":
+                st.markdown("""
+                **Fast Acetylators:**
+                - Rapidly convert procainamide → NAPA
+                - May accumulate NAPA, which lacks antiarrhythmic properties but retains toxicity risk
+                - **Action**: Monitor total (Proc + NAPA) levels; higher maintenance doses may be needed
+                - **Dosing**: Consider higher target procainamide level (upper range 8-10) or increase frequency
+                """)
+            elif pk['p_acetylator'] == "Slow":
+                st.markdown("""
+                **Slow Acetylators:**
+                - Accumulate procainamide; less NAPA formation
+                - Higher risk of procainamide-related toxicity
+                - **Action**: Lower maintenance doses; monitor for CNS toxicity (tremor, confusion)
+                - **Dosing**: Consider lower target procainamide level (lower range 4-6)
+                - **Risk**: Drug-induced lupus-like syndrome with prolonged therapy
+                """)
+            else:
+                st.markdown("""
+                **Unknown Acetylator Status:**
+                - Monitor BOTH procainamide and NAPA levels closely
+                - Initial dosing should be conservative (lower end of range)
+                - Check metabolic phenotype if possible (genetic testing or acetaminophen challenge)
+                - Adjust based on response and emerging side effects
+                """)
 
     else:
         st.info("Process a calculation in the Dosing tab first to generate documentation.")
