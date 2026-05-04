@@ -308,10 +308,53 @@ with tab_setup:
                 # Calculation Type
                 calculation_type = st.selectbox(
                     "Calculation Type",
-                    ["Initial dosing", "Dose adjustment", "Toxicity assessment", "Dosage form switching"],
+                    ["Initial dosing", "Dose adjustment", "Toxicity assessment", "Dosage form switching", "Monitoring"],
                     help="Type of pharmacokinetic calculation",
                     key="calculation_type"
                 )
+                
+                # ===== CONDITIONAL INPUTS BASED ON CALCULATION TYPE =====
+                if calculation_type == "Dose adjustment":
+                    st.markdown("---")
+                    st.markdown("**📊 Dose Adjustment Inputs**")
+                    da1, da2, da3 = st.columns(3)
+                    dig_old_dose = da1.number_input("Old Dose (mcg)", min_value=0.0, value=125.0, step=25.0, key="dig_old_dose")
+                    dig_old_css = da2.number_input("Old Css (ng/mL)", min_value=0.0, value=0.8, step=0.1, format="%.2f", key="dig_old_css")
+                    dig_new_css = da3.number_input("New Css (ng/mL)", min_value=0.0, value=1.0, step=0.1, format="%.2f", key="dig_new_css")
+                    dig_tau = st.number_input("Dosing Interval τ (hours)", min_value=1, value=24, step=1, key="dig_tau_adj")
+                
+                elif calculation_type == "Dosage form switching":
+                    st.markdown("---")
+                    st.markdown("**🔄 Dosage Form Switching Inputs**")
+                    ds1, ds2 = st.columns(2)
+                    dig_from_form = ds1.selectbox("From (Dosage Form)", ["IV", "Oral Tablets", "Oral Capsules", "Oral Elixir"], key="dig_from_form")
+                    dig_to_form = ds2.selectbox("To (Dosage Form)", ["IV", "Oral Tablets", "Oral Capsules", "Oral Elixir"], key="dig_to_form")
+                    dig_switch_dose = st.number_input("Old Dose (mcg)", min_value=0.0, value=250.0, step=25.0, key="dig_switch_dose")
+                
+                elif calculation_type == "Toxicity assessment":
+                    st.markdown("---")
+                    st.markdown("**🚨 Digoxin Toxicity (Digibind) Inputs**")
+                    tx1, tx2 = st.columns(2)
+                    dig_tox_css = tx1.number_input("Serum Digoxin Css (ng/mL) [0 = unknown]", min_value=0.0, value=0.0, step=0.1, format="%.2f", key="dig_tox_css")
+                    dig_tox_tablets = tx2.number_input("Number of tablets ingested [0 = unknown]", min_value=0, value=0, step=1, key="dig_tox_tablets")
+                    tx3, tx4 = st.columns(2)
+                    dig_tox_state = tx3.selectbox("Patient State", ["Acute", "Chronic"], key="dig_tox_state")
+                    dig_tox_tablet_dose = tx4.number_input("Dose per tablet (mcg)", min_value=0.0, value=250.0, step=25.0, key="dig_tox_tablet_dose")
+                    dig_tox_f = 0.7  # F for tablets
+                
+                elif calculation_type == "Monitoring":
+                    st.markdown("---")
+                    st.markdown("**📋 Digoxin Monitoring Inputs**")
+                    mo1, mo2 = st.columns(2)
+                    dig_last_dose_time = mo1.number_input("Hours since last dose", min_value=0.0, value=8.0, step=0.5, key="dig_last_dose_hr")
+                    dig_days_since = mo2.number_input("Days since start / dose change", min_value=0, value=7, step=1, key="dig_days_since")
+                    mo3, mo4 = st.columns(2)
+                    dig_mon_css = mo3.number_input("Current Css (ng/mL)", min_value=0.0, value=0.8, step=0.1, format="%.2f", key="dig_mon_css")
+                    dig_mon_hr = mo4.number_input("Heart Rate (bpm)", min_value=0, value=72, step=1, key="dig_mon_hr")
+                    mo5, mo6, mo7 = st.columns(3)
+                    dig_mon_k = mo5.number_input("K⁺ (mEq/L)", min_value=0.0, value=4.0, step=0.1, format="%.1f", key="dig_mon_k")
+                    dig_mon_mg = mo6.number_input("Mg²⁺ (mg/dL)", min_value=0.0, value=2.0, step=0.1, format="%.1f", key="dig_mon_mg")
+                    dig_mon_ca = mo7.number_input("Total Ca²⁺ (mg/dL)", min_value=0.0, value=9.5, step=0.1, format="%.1f", key="dig_mon_ca")
         else:
             # ===== PROCAINAMIDE-SPECIFIC PARAMETERS =====
             if selected_drug == "Procainamide":
@@ -644,7 +687,7 @@ with tab_results:
             else:
                 st.info("Oral route selected in PK parameter mode. Use drug-specific clinical references to convert PK parameters into appropriate oral dosing regimens.")
 
-        if selected_drug == 'Digoxin':
+        if selected_drug == 'Digoxin' and calculation_type == "Initial dosing":
             # ===== DIGOXIN-SPECIFIC BMI/WEIGHT/CrCl LOGIC =====
             digoxin_bmi = bmi
             digoxin_is_obese = digoxin_bmi > 25  # Digoxin threshold is BMI > 25
@@ -754,6 +797,232 @@ with tab_results:
 
             if target_peak > 2.0:
                 warnings.append("Digoxin target > 2.0 ng/mL increases toxicity risk.")
+
+        # ===== DIGOXIN DOSE ADJUSTMENT =====
+        elif selected_drug == 'Digoxin' and calculation_type == "Dose adjustment":
+            digoxin_bmi = bmi
+            digoxin_is_obese = digoxin_bmi > 25
+            digoxin_crcl = calc_salazar_corcoran(sex, age, abw, height_cm, scr) if digoxin_is_obese else calc_crcl(age, abw, sex, scr)
+            weight_used = ibw if digoxin_is_obese else abw
+            F_adj = bioavailability
+            tau_adj = dig_tau
+
+            st.subheader("📊 Digoxin Dose Adjustment")
+
+            if dig_old_css > 0:
+                # Method 1: Linear PK
+                d_new_1 = (dig_new_css * dig_old_dose) / dig_old_css
+                # Round
+                if route_of_admin == "Oral":
+                    d_new_1_r = 125 if d_new_1 < 188 else (250 if d_new_1 < 375 else 500)
+                else:
+                    d_new_1_r = 125 if d_new_1 < 187 else (250 if d_new_1 < 312 else (375 if d_new_1 < 437 else 500))
+
+                # Method 2: PK Parameters
+                cl_adj = (F_adj * (dig_old_dose / tau_adj)) / dig_old_css
+                d_new_2 = (dig_new_css * cl_adj * tau_adj) / F_adj
+                if route_of_admin == "Oral":
+                    d_new_2_r = 125 if d_new_2 < 188 else (250 if d_new_2 < 375 else 500)
+                else:
+                    d_new_2_r = 125 if d_new_2 < 187 else (250 if d_new_2 < 312 else (375 if d_new_2 < 437 else 500))
+
+                st.markdown(f"""
+                <div class='alert-box alert-info'>
+                <p><strong>🔹 Method 1 — Linear Pharmacokinetics:</strong></p>
+                <p>Dnew = (Css_new × Dold) / Css_old = ({dig_new_css} × {dig_old_dose}) / {dig_old_css} = <strong>{d_new_1:.1f} mcg</strong></p>
+                <p>Rounded: <strong>{d_new_1_r} mcg</strong></p>
+                <hr style="opacity:0.2;">
+                <p><strong>🔹 Method 2 — PK Parameters:</strong></p>
+                <p>Step 1: Cl = [F × (Dold/τ)] / Css_old = [{F_adj} × ({dig_old_dose}/{tau_adj})] / {dig_old_css} = <strong>{cl_adj:.2f} mcg·hr/ng</strong></p>
+                <p>Step 2: Dnew = (Css_new × Cl × τ) / F = ({dig_new_css} × {cl_adj:.2f} × {tau_adj}) / {F_adj} = <strong>{d_new_2:.1f} mcg</strong></p>
+                <p>Rounded: <strong>{d_new_2_r} mcg</strong></p>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.error("❌ Old Css must be > 0 for dose adjustment.")
+            md = 0; ld = 0; vd = 0; cl = 0; ke = 0; t_half = 0; final_interval = 24
+            md_raw = 0; md_rounded = 0; cl_total_ml_min = 0; cl_total_L_day = 0; clnr = 0
+            vd_formula = ""; cl_formula = ""; t_half_hours = 0
+
+        # ===== DIGOXIN DOSAGE FORM SWITCHING =====
+        elif selected_drug == 'Digoxin' and calculation_type == "Dosage form switching":
+            F_MAP = {"IV": 1.0, "Oral Tablets": 0.7, "Oral Capsules": 0.7, "Oral Elixir": 0.75}
+            f_from = F_MAP[dig_from_form]
+            f_to = F_MAP[dig_to_form]
+            d_new_switch = dig_switch_dose * (f_from / f_to) if f_to > 0 else 0
+            # Round
+            if "Oral" in dig_to_form:
+                d_new_switch_r = 125 if d_new_switch < 188 else (250 if d_new_switch < 375 else 500)
+            else:
+                d_new_switch_r = 125 if d_new_switch < 187 else (250 if d_new_switch < 312 else (375 if d_new_switch < 437 else 500))
+
+            st.subheader("🔄 Dosage Form Switching")
+            st.markdown(f"""
+            <div class='alert-box alert-info'>
+            <p><strong>⚙️ System Constants (F values):</strong></p>
+            <table style="width:100%; border-collapse:collapse; margin:8px 0;">
+                <tr><th style="text-align:left; padding:4px;">Dosage Form</th><th style="text-align:left; padding:4px;">F</th></tr>
+                <tr><td style="padding:4px;">IV</td><td style="padding:4px;">1.0</td></tr>
+                <tr><td style="padding:4px;">Oral Tablets</td><td style="padding:4px;">0.7</td></tr>
+                <tr><td style="padding:4px;">Oral Capsules</td><td style="padding:4px;">0.7</td></tr>
+                <tr><td style="padding:4px;">Oral Elixir</td><td style="padding:4px;">0.75</td></tr>
+            </table>
+            <hr style="opacity:0.2;">
+            <p><strong>Dnew = Dold × (F_from / F_to)</strong></p>
+            <p>= {dig_switch_dose} × ({f_from} / {f_to}) = <strong>{d_new_switch:.1f} mcg</strong></p>
+            <p>Rounded: <strong>{d_new_switch_r} mcg</strong></p>
+            <p>From: <strong>{dig_from_form}</strong> → To: <strong>{dig_to_form}</strong></p>
+            </div>
+            """, unsafe_allow_html=True)
+            md = 0; ld = 0; vd = 0; cl = 0; ke = 0; t_half = 0; final_interval = 24
+            md_raw = 0; md_rounded = 0; cl_total_ml_min = 0; cl_total_L_day = 0; clnr = 0
+            vd_formula = ""; cl_formula = ""; t_half_hours = 0
+            digoxin_bmi = bmi; digoxin_is_obese = bmi > 25; digoxin_crcl = crcl
+            weight_used = ibw if digoxin_is_obese else abw
+            weight_used_label = "IBW" if digoxin_is_obese else "ABW"
+            crcl_method_label = "N/A"
+
+        # ===== DIGOXIN TOXICITY (DIGIBIND) =====
+        elif selected_drug == 'Digoxin' and calculation_type == "Toxicity assessment":
+            st.subheader("🚨 Digoxin Toxicity — Digibind Dose Calculator")
+            vials = 0
+            case_used = ""
+
+            if dig_tox_css == 0 and dig_tox_tablets == 0:
+                # Case 1: Unknown dose/level
+                if dig_tox_state == "Acute":
+                    vials = 20
+                    case_used = "Case 1 (Acute, unknown): 20 vials (10 + monitor + 10)"
+                else:
+                    vials = 6
+                    case_used = "Case 1 (Chronic, unknown): 6 vials"
+            elif dig_tox_css > 0:
+                # Case 2: Known Css
+                vials = (dig_tox_css * abw) / 100
+                case_used = f"Case 2: (Css × Weight) / 100 = ({dig_tox_css} × {abw}) / 100 = {vials:.1f}"
+            elif dig_tox_state == "Acute" and dig_tox_tablets > 0:
+                # Case 3: Known tablets (acute)
+                dose_mg = (dig_tox_tablets * dig_tox_tablet_dose) / 1000
+                vials = (dose_mg * dig_tox_f) / 0.5
+                case_used = f"Case 3: (Tablets × Dose × F) / 0.5 = ({dig_tox_tablets} × {dig_tox_tablet_dose/1000:.3f}mg × {dig_tox_f}) / 0.5 = {vials:.1f}"
+
+            import math
+            vials_rounded = math.ceil(vials)
+
+            st.markdown(f"""
+            <div class='alert-box alert-danger'>
+            <p><strong>Calculation Method:</strong> {case_used}</p>
+            <p><strong>Digibind Vials Required:</strong> <span style="font-size:1.4em; font-weight:700;">{vials_rounded} vials</span></p>
+            <p style="opacity:0.7;">1 vial binds 0.5 mg digoxin | F(tablet) = 0.7 | Default tablet = 250 mcg</p>
+            </div>
+            """, unsafe_allow_html=True)
+            if dig_tox_state == "Acute" and dig_tox_css == 0 and dig_tox_tablets == 0:
+                st.info("💡 **Acute unknown:** Give 10 vials → monitor → give 10 more if needed.")
+            md = 0; ld = 0; vd = 0; cl = 0; ke = 0; t_half = 0; final_interval = 24
+            md_raw = 0; md_rounded = 0; cl_total_ml_min = 0; cl_total_L_day = 0; clnr = 0
+            vd_formula = ""; cl_formula = ""; t_half_hours = 0
+            digoxin_bmi = bmi; digoxin_is_obese = bmi > 25; digoxin_crcl = crcl
+            weight_used = ibw if digoxin_is_obese else abw
+            weight_used_label = "IBW" if digoxin_is_obese else "ABW"
+            crcl_method_label = "N/A"
+
+        # ===== DIGOXIN MONITORING =====
+        elif selected_drug == 'Digoxin' and calculation_type == "Monitoring":
+            st.subheader("📋 Digoxin Monitoring")
+            mon_alerts = []
+            mon_status = ""
+            mon_recommendation = ""
+            mon_action = ""
+
+            # Pre-checks
+            dist_phase = dig_last_dose_time < 6
+            not_steady = dig_days_since < 5
+
+            if dist_phase:
+                st.error("🚫 **Invalid level — Distribution phase (<6 hours post-dose). STOP further interpretation.**")
+            else:
+                if not_steady:
+                    st.warning("⚠️ **Not at steady state (<5 days since start/change). Results interpreted with caution.**")
+
+                # Target range
+                if indication == "Heart Failure":
+                    t_low, t_high = 0.5, 0.9
+                else:
+                    t_low, t_high = 0.8, 1.5
+
+                # Interpretation
+                if dig_mon_css < t_low:
+                    mon_status = "🔵 Subtherapeutic"
+                    mon_recommendation = "Consider increasing dose"
+                    mon_action = "→ Go to Dose Adjustment module"
+                    s_color = "#3b82f6"
+                elif dig_mon_css <= t_high:
+                    mon_status = "🟢 Therapeutic"
+                    mon_recommendation = "Maintain current dose"
+                    mon_action = ""
+                    s_color = "#10b981"
+                elif dig_mon_css < 2.0:
+                    mon_status = "🟡 Above Target"
+                    mon_recommendation = "Reduce dose or increase interval"
+                    mon_action = "→ Go to Dose Adjustment module"
+                    s_color = "#f59e0b"
+                else:
+                    mon_status = "🔴 TOXIC"
+                    mon_recommendation = "Discontinue immediately"
+                    mon_action = "→ Go to Toxicity Module (Digibind)"
+                    s_color = "#ef4444"
+
+                st.markdown(f"""<div style="background:{s_color}20; padding:16px; border-radius:12px; border-left:6px solid {s_color}; margin:10px 0;">
+                <p style="font-size:1.3em; font-weight:700; color:{s_color}; margin:0;">{mon_status}</p>
+                <p><strong>Target Range ({indication}):</strong> {t_low} – {t_high} ng/mL | <strong>Current:</strong> {dig_mon_css} ng/mL</p>
+                <p><strong>Recommendation:</strong> {mon_recommendation}</p>
+                {"<p><strong>" + mon_action + "</strong></p>" if mon_action else ""}
+                </div>""", unsafe_allow_html=True)
+
+                # Clinical Alerts
+                hr_alerts = []
+                if dig_mon_hr < 50:
+                    hr_alerts.append("🔴 HR < 50 — Consider holding dose")
+                elif dig_mon_hr < 60:
+                    hr_alerts.append("🟡 HR < 60 — Bradycardia risk")
+
+                elec_alerts = []
+                if dig_mon_k < 3.5: elec_alerts.append("⚡ K⁺ < 3.5 mEq/L — Hypokalemia (↑ toxicity risk)")
+                if dig_mon_mg < 1.7: elec_alerts.append("⚡ Mg²⁺ < 1.7 mg/dL — Hypomagnesemia (↑ toxicity risk)")
+                if dig_mon_ca > 10.5: elec_alerts.append("⚡ Ca²⁺ > 10.5 mg/dL — Hypercalcemia (↑ toxicity risk)")
+
+                renal_alert = ""
+                if crcl <= 30:
+                    renal_alert = "🟤 CrCl ≤ 30 mL/min — Renal Failure"
+
+                # Monitoring frequency
+                if dig_mon_css >= 2.0 or dig_mon_hr < 50 or dig_mon_k < 3.5:
+                    freq = "⏱️ High Risk → Monitor every 1–2 weeks"
+                elif not_steady or mon_status == "🔵 Subtherapeutic" or mon_status == "🟡 Above Target":
+                    freq = "⏱️ Dose changed → Re-check in 5–7 days"
+                else:
+                    freq = "⏱️ Stable → Routine monitoring every 6 months"
+
+                alerts_html = ""
+                if hr_alerts: alerts_html += "<p><strong>🫀 Clinical:</strong><br>" + "<br>".join(hr_alerts) + "</p>"
+                if elec_alerts: alerts_html += "<p><strong>⚡ Electrolytes:</strong><br>" + "<br>".join(elec_alerts) + "</p>"
+                if renal_alert: alerts_html += f"<p><strong>{renal_alert}</strong></p>"
+
+                if alerts_html:
+                    st.markdown(f"""<div style="background:rgba(239,68,68,0.08); padding:14px; border-radius:10px; border-left:5px solid #ef4444; margin:10px 0;">
+                    <p style="font-weight:700; margin:0 0 6px 0;">⚠️ Alerts</p>{alerts_html}</div>""", unsafe_allow_html=True)
+
+                st.markdown(f"""<div style="background:var(--secondary-background-color); padding:14px; border-radius:10px; border-left:5px solid #6366f1; margin:10px 0;">
+                <p style="font-weight:700; margin:0;">{freq}</p></div>""", unsafe_allow_html=True)
+
+            md = 0; ld = 0; vd = 0; cl = 0; ke = 0; t_half = 0; final_interval = 24
+            md_raw = 0; md_rounded = 0; cl_total_ml_min = 0; cl_total_L_day = 0; clnr = 0
+            vd_formula = ""; cl_formula = ""; t_half_hours = 0
+            digoxin_bmi = bmi; digoxin_is_obese = bmi > 25; digoxin_crcl = crcl
+            weight_used = ibw if digoxin_is_obese else abw
+            weight_used_label = "IBW" if digoxin_is_obese else "ABW"
+            crcl_method_label = "N/A"
+
         elif selected_drug == 'Procainamide':
             vd = 2.0 * abw
             cl = (180 + 3 * crcl) * 60 / 1000 if not is_hf else (90 + 1.5 * crcl) * 60 / 1000
@@ -840,7 +1109,7 @@ with tab_results:
         validation_title = "Approved"
         validation_color = "alert-success"
 
-        if selected_drug == "Digoxin":
+        if selected_drug == "Digoxin" and calculation_type == "Initial dosing":
             disp_vd = f"{vd_formula}"
             disp_cl = f"{cl_formula}"
             disp_thalf = f"{t_half_hours:.1f} hours"
