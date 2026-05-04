@@ -835,7 +835,7 @@ with tab_results:
                 validation_color = "alert-warning"
 
             maintenance_text = f"{md_daily:,.0f} mg/day"
-            loading_text = f"{ld_disp:,.1f} {dose_unit} once" if ld > 0 else "None"
+            loading_text = f"{ld_disp:,.1f} {dose_unit} divided doses" if ld > 0 else "None"
             rec_dose_str = maintenance_text
             admin_str = "IV or PO"
             interval_str = f"q{final_interval}h"
@@ -961,20 +961,20 @@ with tab_results:
         if overall_level == 2:
             card_color = "#ef4444"
             card_icon = "🔴"
-            card_status = "High Risk – Immediate Review Required"
-            action_step = "<li>Hold dose immediately.</li><li>Evaluate for toxicity symptoms.</li><li>Consider antidote or alternative therapy if severe.</li>"
+            card_status = "Toxic – Immediate Intervention Required"
+            action_step = "<li><strong>Action:</strong> Discontinue drug immediately.</li><li><strong>Follow-up:</strong> Urgent referral to specialist (Cardiology, Pulmonology, or Hepatology).</li>"
             validation_status_plain = f"❌ {validation_status.replace('<br>', ' - ')}"
         elif overall_level == 1:
             card_color = "#f59e0b"
             card_icon = "🟡"
-            card_status = "Caution – Upper Maintenance Range / Near Upper Limit"
-            action_step = "<li>Maintain dose but increase monitoring frequency.</li><li>Consider dose reduction if renal function declines or symptoms develop.</li>"
+            card_status = "At Risk – Monitoring Required"
+            action_step = "<li><strong>Action:</strong> Consider dose reduction OR increase monitoring frequency.</li><li><strong>Follow-up:</strong> Re-evaluate within 1 month.</li>"
             validation_status_plain = f"⚠ {validation_status.replace('<br>', ' - ')}"
         else:
             card_color = "#10b981"
             card_icon = "🟢"
-            card_status = "Safe – Optimal Therapeutic Range"
-            action_step = "<li>Continue current dose.</li><li>Routine clinical monitoring.</li><li>Recheck levels if clinical status changes.</li>"
+            card_status = "Stable – Optimal Therapeutic Range"
+            action_step = "<li><strong>Action:</strong> Maintain current dose.</li><li><strong>Follow-up:</strong> Routine monitoring (every 6 months).</li>"
             validation_status_plain = f"✔ {validation_status.replace('<br>', ' - ')}"
             
         # Toxicity Risk Engine & Monitoring
