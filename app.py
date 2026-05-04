@@ -456,9 +456,10 @@ with tab_setup:
         cg_abw_help = "**Cockcroft & Gault (Actual Body Weight)**\n\n*If Male:* CrCl = ((140 - Age) * Weight_Actual) / (72 * Creatinine)\n\n*If Female:* CrCl = [((140 - Age) * Weight_Actual) / (72 * Creatinine)] * 0.85"
         cg_ibw_help = "**Cockcroft & Gault (Ideal Body Weight)**\n\n*If Male:* CrCl = ((140 - Age) * Weight_Ideal) / (72 * Creatinine)\n\n*If Female:* CrCl = [((140 - Age) * Weight_Ideal) / (72 * Creatinine)] * 0.85"
         jelliffe_help = "**Jelliffe Equation**\n\n*If Male:* Jelliffe = (98 - [0.8 * (Age - 20)]) / Creatinine\n\n*If Female:* Jelliffe = ((98 - [0.8 * (Age - 20)]) / Creatinine) * 0.90"
+        salazar_help = "**Salazar-Corcoran Equation**\n\n*For male:* CrCl = ((137 - Age) * [(0.287 × Weight_Actual) + (12.1 × Height_m²)]) / (51 × Scr)\n\n*For female:* CrCl = ((146 - Age) * [(0.285 × Weight_Actual) + (9.74 × Height_m²)]) / (60 × Scr)\n\n- Use actual body weight in kg\n- Use height in meters"
         mdrd_help = "**Simplified 4-variable MDRD formula**\n\nMDRD = 175 * (Creatinine ^ -1.154) * (Age ^ -0.203)\n\n*If Female:* Multiply result by 0.742\n\n*If African American:* Multiply result by 1.212"
 
-        r1, r2 = st.columns(2)
+        r1, r2, r3 = st.columns(3)
         with r1:
             st.metric("CG — Actual Body Weight", f"{crcl_abw:.1f} mL/min")
             with st.expander("View Equation"):
@@ -467,16 +468,20 @@ with tab_setup:
             st.metric("CG — Ideal Body Weight", f"{crcl_ibw:.1f} mL/min")
             with st.expander("View Equation"):
                 st.markdown(cg_ibw_help)
-                
-        r3, r4 = st.columns(2)
         with r3:
             st.metric("Jelliffe", f"{crcl_jelliffe:.1f} mL/min")
             with st.expander("View Equation"):
                 st.markdown(jelliffe_help)
-        with r4:
+
+        s1, s2 = st.columns(2)
+        with s1:
             st.metric("MDRD (eGFR)", f"{egfr_mdrd:.1f} mL/min/1.73 m²")
             with st.expander("View Equation"):
                 st.markdown(mdrd_help)
+        with s2:
+            st.metric("Salazar-Corcoran", f"{salazar:.1f} mL/min")
+            with st.expander("View Equation"):
+                st.markdown(salazar_help)
     # ===== OBESE PATIENTS SECTION =====
     if bmi >= 30:
         st.markdown('<div class="obese-header">⚠️ CONSIDER THESE RESULTS FOR OBESE PATIENTS (BMI ≥ 30)</div>', unsafe_allow_html=True)
