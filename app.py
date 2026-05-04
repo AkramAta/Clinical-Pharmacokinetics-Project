@@ -675,10 +675,6 @@ with tab_results:
             else:
                 clnr = 40  # Atrial Fibrillation default
 
-            # ===== TOTAL CLEARANCE =====
-            cl_total_ml_min = digoxin_crcl + clnr  # mL/min
-            cl_total_L_day = cl_total_ml_min * 60 * 24 / 1000  # L/day
-
             # ===== Css (INDICATION-BASED) =====
             if indication == "Heart Failure" and css_initial:
                 target_peak = css_initial  # 0.8 ng/mL
@@ -688,20 +684,60 @@ with tab_results:
                 target_trough = 0
 
             # ===== VOLUME OF DISTRIBUTION =====
-            vd_factor = 7.3 if digoxin_crcl >= 30 else 4.5
-            vd = vd_factor * weight_used
+            if digoxin_crcl >= 30:
+                # Normal renal function: Vd = 7 × weight
+                vd = 7.0 * weight_used
+                vd_formula = f"7 × {weight_used:.1f} = {vd:.1f} L"
+            else:
+                # Renal failure: Vd = [226 + (298 × CrCl / (29.1 + CrCl))] × (Weight/70)
+                vd = (226 + (298 * digoxin_crcl / (29.1 + digoxin_crcl))) * (weight_used / 70)
+                vd_formula = f"[226 + (298 × {digoxin_crcl:.1f} / (29.1 + {digoxin_crcl:.1f}))] × ({weight_used:.1f}/70) = {vd:.1f} L"
+
+            # ===== TOTAL CLEARANCE =====
+            if thyroid_status == "Hyperthyroidism":
+                # Hyperthyroidism: Cl_total = ke × Vd, where ke = 0.693 / 1 day
+                ke_hyper = 0.693  # per day (ke = 0.693 / 1 day)
+                cl_total_ml_min = (ke_hyper * vd * 1000) / 1440  # convert back to mL/min for display
+                cl_total_L_day = ke_hyper * vd  # L/day
+                cl_formula = f"ke × Vd = 0.693 × {vd:.1f} = {cl_total_L_day:.2f} L/day"
+                st.warning("⚠️ **Hyperthyroidism**: Cl = ke × Vd (ke = 0.693/day). Higher maintenance doses may be needed.")
+            else:
+                # Normal thyroid: Cl_total = (1.303 × CrCl) + Clnr (mL/min)
+                renal_cl = 1.303 * digoxin_crcl  # mL/min
+                cl_total_ml_min = renal_cl + clnr  # mL/min
+                # Convert mL/min → L/day: × 1440 / 1000
+                cl_total_L_day = cl_total_ml_min * 1440 / 1000  # L/day
+                cl_formula = f"(1.303 × {digoxin_crcl:.1f}) + {clnr} = {cl_total_ml_min:.1f} mL/min → {cl_total_L_day:.2f} L/day"
 
             # ===== FIXED INTERVAL =====
             final_interval = 24  # τ = 1 day (24 hours) — FIXED for Digoxin
 
             # ===== MAINTENANCE DOSE =====
-            # MD = (Css × Cl_total × τ) / F
-            # Css in ng/mL = mcg/L, Cl in L/day, τ = 1 day → MD in mcg/day
-            md_raw = (target_peak * cl_total_L_day * 1) / bioavailability  # mcg/day
+            # MD = (Css × Cl_total_L_day × 1 day) / F
+            # Css in ng/mL = mcg/L, Cl in L/day → MD in mcg/day
+            md_raw = (target_peak * cl_total_L_day) / bioavailability  # mcg/day
 
-            # Round to nearest available market dose
-            available_doses = [125, 250, 500]
-            md_rounded = min(available_doses, key=lambda d: abs(d - md_raw))
+            # ===== Dose Rounding =====
+            if route_of_admin == "Oral":
+                # Oral rounding: 125 / 250 / 500 mcg
+                if md_raw < 188:
+                    md_rounded = 125
+                elif md_raw < 375:
+                    md_rounded = 250
+                else:
+                    md_rounded = 500
+            else:
+                # IV rounding: 125 / 250 / 375 / 500 mcg
+                if md_raw < 62:
+                    md_rounded = 0  # Too small — review
+                elif md_raw < 187:
+                    md_rounded = 125
+                elif md_raw < 312:
+                    md_rounded = 250
+                elif md_raw < 437:
+                    md_rounded = 375
+                else:
+                    md_rounded = 500
 
             # ===== LOADING DOSE =====
             # LD = (Css × Vd) / F
@@ -715,10 +751,6 @@ with tab_results:
             # Store for display
             cl = cl_total_L_day  # L/day for downstream
             md = md_rounded
-
-            # Apply thyroid status adjustment
-            if thyroid_status == "Hyperthyroidism":
-                st.warning("⚠️ **Hyperthyroidism detected**: Digoxin clearance increased by 50%. Higher maintenance doses may be needed.")
 
             if target_peak > 2.0:
                 warnings.append("Digoxin target > 2.0 ng/mL increases toxicity risk.")
@@ -808,27 +840,48 @@ with tab_results:
         validation_title = "Approved"
         validation_color = "alert-success"
 
-        # Formatting based on drug rules
         if selected_drug == "Digoxin":
-            disp_vd = f"{vd_factor:.1f} L/kg × {weight_used:.1f} kg = {vd:.1f} L"
-            disp_cl = f"{cl_total_ml_min:.1f} mL/min (CrCl {digoxin_crcl:.1f} + Clnr {clnr})"
+            disp_vd = f"{vd_formula}"
+            disp_cl = f"{cl_formula}"
             disp_thalf = f"{t_half_hours:.1f} hours"
             md_daily = md  # Already the rounded daily dose
             
-            # Show raw vs rounded dose info
+            # Rounding info text
+            if route_of_admin == "Oral":
+                rounding_info = "Oral doses: &lt;188→125, 188-374→250, ≥375→500 mcg"
+            else:
+                rounding_info = "IV doses: &lt;62→review, 62-186→125, 187-311→250, 312-436→375, ≥437→500 mcg"
+            
+            # Show calculation summary
             st.markdown(f"""
             <div class='alert-box alert-info'>
                 <p><strong>📊 Digoxin Dose Calculation Summary:</strong></p>
                 <p>• <strong>Weight used:</strong> {weight_used_label} = {weight_used:.1f} kg (BMI = {digoxin_bmi:.1f})</p>
                 <p>• <strong>CrCl ({crcl_method_label}):</strong> {digoxin_crcl:.1f} mL/min</p>
                 <p>• <strong>Non-renal clearance (Clnr):</strong> {clnr} mL/min</p>
-                <p>• <strong>Total clearance:</strong> {cl_total_ml_min:.1f} mL/min = {cl_total_L_day:.2f} L/day</p>
-                <p>• <strong>Vd:</strong> {vd_factor} × {weight_used:.1f} = {vd:.1f} L</p>
+                <p>• <strong>Total clearance:</strong> {cl_formula}</p>
+                <p>• <strong>Vd:</strong> {vd_formula}</p>
                 <p>• <strong>Css:</strong> {target_peak} ng/mL | <strong>F:</strong> {bioavailability}</p>
-                <p>• <strong>Calculated MD:</strong> {md_raw:.1f} mcg/day</p>
-                <p>• <strong>Rounded to nearest market dose:</strong> <b>{md_rounded} mcg/day</b> (available: 125 / 250 / 500 mcg)</p>
+                <hr style="opacity:0.2; margin:8px 0;">
+                <p>• <strong>MD = (Css × Cl × 1 day) / F</strong> = ({target_peak} × {cl_total_L_day:.2f} × 1) / {bioavailability} = <strong>{md_raw:.1f} mcg/day</strong></p>
+                <p>• <strong>Rounded to market dose:</strong> <b>{md_rounded} mcg/day</b> ({rounding_info})</p>
+                <p>• <strong>LD = (Css × Vd) / F</strong> = ({target_peak} × {vd:.1f}) / {bioavailability} = <strong>{ld:.1f} mcg</strong></p>
             </div>
             """, unsafe_allow_html=True)
+
+            # LD split note
+            st.markdown(f"""
+            <div style="background:rgba(245,158,11,0.1); padding:14px; border-radius:10px; border-left:5px solid #f59e0b; margin:10px 0;">
+                <p style="margin:0 0 6px 0; font-weight:700; color:#f59e0b;">⚠️ Loading Dose Administration (if applicable):</p>
+                <p style="margin:3px 0;">• <strong>50%</strong> of LD as first dose</p>
+                <p style="margin:3px 0;">• Then <strong>25%</strong> after 4–6 hours</p>
+                <p style="margin:3px 0;">• Then <strong>25%</strong> after another 4–6 hours</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # IV dose too small warning
+            if route_of_admin == "IV" and md_rounded == 0:
+                st.error("🚨 **Calculated IV dose is too small (<62 mcg). Please review and consider alternative dosing.**")
             
             # Dose limit check
             if md_daily > 500:
@@ -843,7 +896,7 @@ with tab_results:
                 
             route_label = route_of_admin if route_of_admin != "Select Route" else "PO or IV"
             maintenance_text = f"{md_daily} mcg {route_label} q24h"
-            loading_text = f"{ld:,.0f} mcg once" if ld > 0 else "None"
+            loading_text = f"{ld:,.0f} mcg {route_label}" if ld > 0 else "None"
             rec_dose_str = f"{md_daily} mcg/day"
             admin_str = route_label
             interval_str = "q24h (τ = 1 day)"
