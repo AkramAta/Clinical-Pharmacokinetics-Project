@@ -595,41 +595,83 @@ with tab_results:
                 st.info("Oral route selected in PK parameter mode. Use drug-specific clinical references to convert PK parameters into appropriate oral dosing regimens.")
 
         if selected_drug == 'Digoxin':
-            # Apply HF severity-based CrCl adjustment if applicable
-            adjusted_crcl = crcl
-            if indication == "Heart Failure" and crcl_hf_adjustment and hf_severity and hf_severity != "Select Severity":
-                # For HF patients, use adjusted clearance
-                adjusted_crcl = max(crcl_hf_adjustment, crcl)  # Use whichever is lower for conservative dosing
-                st.info(f"💊 **Digoxin + {hf_severity} HF**: Using conservative CrCl adjustment to {adjusted_crcl:.1f} mL/min")
-            
-            # Use indication-based CSS if selected
+            # ===== DIGOXIN-SPECIFIC BMI/WEIGHT/CrCl LOGIC =====
+            digoxin_bmi = bmi
+            digoxin_is_obese = digoxin_bmi > 25  # Digoxin threshold is BMI > 25
+
+            if digoxin_is_obese:
+                weight_used = ibw
+                weight_used_label = "Ideal Body Weight (IBW)"
+                digoxin_crcl = calc_salazar_corcoran(sex, age, abw, height_cm, scr)
+                crcl_method_label = "Salazar-Corcoran"
+            else:
+                weight_used = abw
+                weight_used_label = "Actual Body Weight (ABW)"
+                digoxin_crcl = calc_crcl(age, abw, sex, scr)
+                crcl_method_label = "Cockcroft-Gault (ABW)"
+
+            st.info(f"📐 **BMI = {digoxin_bmi:.1f}** → {'Obese' if digoxin_is_obese else 'Non-obese'} "
+                    f"→ Weight: **{weight_used_label}** ({weight_used:.1f} kg) "
+                    f"| CrCl method: **{crcl_method_label}** ({digoxin_crcl:.1f} mL/min)")
+
+            # ===== NON-RENAL CLEARANCE (Clnr) =====
+            if indication == "Heart Failure":
+                if hf_severity == "Mild":
+                    clnr = 40  # mL/min
+                elif hf_severity in ["Moderate", "Severe"]:
+                    clnr = 20  # mL/min
+                else:
+                    clnr = 40  # default
+            else:
+                clnr = 40  # Atrial Fibrillation default
+
+            # ===== TOTAL CLEARANCE =====
+            cl_total_ml_min = digoxin_crcl + clnr  # mL/min
+            cl_total_L_day = cl_total_ml_min * 60 * 24 / 1000  # L/day
+
+            # ===== Css (INDICATION-BASED) =====
             if indication == "Heart Failure" and css_initial:
-                target_peak = css_initial  # 0.8 ng/mL for HF
-                target_trough = 0  # Remove peak/trough for steady-state dosing
+                target_peak = css_initial  # 0.8 ng/mL
+                target_trough = 0
             elif indication == "Atrial Fibrillation" and css_initial:
-                target_peak = css_initial  # 1.2 ng/mL for AFib
-                target_trough = 0  # Remove peak/trough for steady-state dosing
-            
-            # Calculate VD and CL with bioavailability factor
-            vd_factor = 7.3 if adjusted_crcl >= 30 else 4.5
-            vd = vd_factor * ibw
-            
-            # Clearance adjusted for renal function
-            cl = ((0.8 * ibw) + adjusted_crcl) * 60 / 1000
-            
-            # Apply bioavailability adjustment
-            if route_of_admin == "Oral":
-                cl = cl * bioavailability  # Effective clearance with bioavailability factor
-            
-            # Apply thyroid status adjustment (hyperthyroidism → increased metabolism)
+                target_peak = css_initial  # 1.2 ng/mL
+                target_trough = 0
+
+            # ===== VOLUME OF DISTRIBUTION =====
+            vd_factor = 7.3 if digoxin_crcl >= 30 else 4.5
+            vd = vd_factor * weight_used
+
+            # ===== FIXED INTERVAL =====
+            final_interval = 24  # τ = 1 day (24 hours) — FIXED for Digoxin
+
+            # ===== MAINTENANCE DOSE =====
+            # MD = (Css × Cl_total × τ) / F
+            # Css in ng/mL = mcg/L, Cl in L/day, τ = 1 day → MD in mcg/day
+            md_raw = (target_peak * cl_total_L_day * 1) / bioavailability  # mcg/day
+
+            # Round to nearest available market dose
+            available_doses = [125, 250, 500]
+            md_rounded = min(available_doses, key=lambda d: abs(d - md_raw))
+
+            # ===== LOADING DOSE =====
+            # LD = (Css × Vd) / F
+            ld = (target_peak * vd) / bioavailability  # mcg
+
+            # ===== Ke and t½ =====
+            ke = cl_total_L_day / vd if vd > 0 else 0  # per day
+            t_half = 0.693 / ke if ke > 0 else 0  # days
+            t_half_hours = t_half * 24  # hours
+
+            # Store for display
+            cl = cl_total_L_day  # L/day for downstream
+            md = md_rounded
+
+            # Apply thyroid status adjustment
             if thyroid_status == "Hyperthyroidism":
-                cl = cl * 1.5  # Increased clearance due to increased metabolism
                 st.warning("⚠️ **Hyperthyroidism detected**: Digoxin clearance increased by 50%. Higher maintenance doses may be needed.")
-            
-            if target_peak > 2.0: 
+
+            if target_peak > 2.0:
                 warnings.append("Digoxin target > 2.0 ng/mL increases toxicity risk.")
-            if interval == 0: 
-                final_interval = 24 if adjusted_crcl >= 50 else (48 if adjusted_crcl >= 20 else 72)
         elif selected_drug == 'Procainamide':
             vd = 2.0 * abw
             cl = (180 + 3 * crcl) * 60 / 1000 if not is_hf else (90 + 1.5 * crcl) * 60 / 1000
@@ -663,14 +705,15 @@ with tab_results:
             cl = 0.12 * abw
             if interval == 0: final_interval = 24
             
-        if cl and vd:
-            ke = cl / vd
-            t_half = 0.693 / ke
-            ld = vd * target_peak
-            md = cl * target_peak * final_interval
+        if selected_drug != 'Digoxin':  # Digoxin handles its own ke/md/ld above
+            if cl and vd:
+                ke = cl / vd
+                t_half = 0.693 / ke
+                ld = vd * target_peak
+                md = cl * target_peak * final_interval
 
-        if md > 0: md = round(md / 50) * 50 if md > 100 else round(md, 2)
-        if ld > 0: ld = round(ld / 50) * 50 if ld > 100 else round(ld, 2)
+            if md > 0: md = round(md / 50) * 50 if md > 100 else round(md, 2)
+            if ld > 0: ld = round(ld / 50) * 50 if ld > 100 else round(ld, 2)
 
         validation_status = "✅ Within recommended dose limits"
         validation_title = "Approved"
@@ -678,27 +721,43 @@ with tab_results:
 
         # Formatting based on drug rules
         if selected_drug == "Digoxin":
-            disp_vd = f"{(vd / ibw):.1f} L/kg"
-            disp_cl = f"{(cl * 1000 / 60):.1f} mL/min"
-            disp_thalf = f"{t_half:.1f} hours"
-            md_daily = (md / final_interval) * 24 if final_interval > 0 else md
+            disp_vd = f"{vd_factor:.1f} L/kg × {weight_used:.1f} kg = {vd:.1f} L"
+            disp_cl = f"{cl_total_ml_min:.1f} mL/min (CrCl {digoxin_crcl:.1f} + Clnr {clnr})"
+            disp_thalf = f"{t_half_hours:.1f} hours"
+            md_daily = md  # Already the rounded daily dose
+            
+            # Show raw vs rounded dose info
+            st.markdown(f"""
+            <div class='alert-box alert-info'>
+                <p><strong>📊 Digoxin Dose Calculation Summary:</strong></p>
+                <p>• <strong>Weight used:</strong> {weight_used_label} = {weight_used:.1f} kg (BMI = {digoxin_bmi:.1f})</p>
+                <p>• <strong>CrCl ({crcl_method_label}):</strong> {digoxin_crcl:.1f} mL/min</p>
+                <p>• <strong>Non-renal clearance (Clnr):</strong> {clnr} mL/min</p>
+                <p>• <strong>Total clearance:</strong> {cl_total_ml_min:.1f} mL/min = {cl_total_L_day:.2f} L/day</p>
+                <p>• <strong>Vd:</strong> {vd_factor} × {weight_used:.1f} = {vd:.1f} L</p>
+                <p>• <strong>Css:</strong> {target_peak} ng/mL | <strong>F:</strong> {bioavailability}</p>
+                <p>• <strong>Calculated MD:</strong> {md_raw:.1f} mcg/day</p>
+                <p>• <strong>Rounded to nearest market dose:</strong> <b>{md_rounded} mcg/day</b> (available: 125 / 250 / 500 mcg)</p>
+            </div>
+            """, unsafe_allow_html=True)
             
             # Dose limit check
-            if md_daily > 250:
-                md_daily = 250
+            if md_daily > 500:
+                md_daily = 500
                 validation_status = "🔴 Calculated dose exceeded maximum limit<br>✔ Auto-adjusted to safe maximum"
                 validation_title = "Auto-Adjusted"
                 validation_color = "alert-danger"
-            elif md_daily >= 200:
+            elif md_daily >= 250:
                 validation_status = "🟡 High therapeutic dose<br>Monitor closely"
                 validation_title = "Caution"
                 validation_color = "alert-warning"
                 
-            maintenance_text = f"{md_daily:,.0f} µg PO q{final_interval}h" if final_interval in [24, 48, 72] else f"{md_daily:,.0f} µg/day"
-            loading_text = f"{ld:,.0f} µg once" if ld > 0 else "None"
-            rec_dose_str = f"{md_daily:,.0f} µg/day"
-            admin_str = "PO or IV"
-            interval_str = f"q{final_interval}h"
+            route_label = route_of_admin if route_of_admin != "Select Route" else "PO or IV"
+            maintenance_text = f"{md_daily} mcg {route_label} q24h"
+            loading_text = f"{ld:,.0f} mcg once" if ld > 0 else "None"
+            rec_dose_str = f"{md_daily} mcg/day"
+            admin_str = route_label
+            interval_str = "q24h (τ = 1 day)"
             
         elif selected_drug == "Lidocaine":
             disp_vd = f"{vd:.1f} L"
@@ -1114,6 +1173,14 @@ with tab_results:
             "bioavailability": bioavailability if selected_drug == "Digoxin" else None,
             "thyroid_status": thyroid_status if selected_drug == "Digoxin" else None,
             "calculation_type": calculation_type if selected_drug == "Digoxin" else None,
+            # New Digoxin PK parameters
+            "digoxin_weight_used": weight_used if selected_drug == "Digoxin" else None,
+            "digoxin_weight_label": weight_used_label if selected_drug == "Digoxin" else None,
+            "digoxin_crcl": digoxin_crcl if selected_drug == "Digoxin" else None,
+            "digoxin_crcl_method": crcl_method_label if selected_drug == "Digoxin" else None,
+            "digoxin_clnr": clnr if selected_drug == "Digoxin" else None,
+            "digoxin_md_raw": md_raw if selected_drug == "Digoxin" else None,
+            "digoxin_is_obese": digoxin_is_obese if selected_drug == "Digoxin" else None,
             # Procainamide-specific parameters
             "p_route": p_route if selected_drug == "Procainamide" else None,
             "p_bioavailability": p_bioavailability if selected_drug == "Procainamide" else None,
@@ -1143,9 +1210,11 @@ with tab_docs:
                         severity_text = f"{pk['hf_severity']} Severity" if pk['hf_severity'] else "Not specified"
                         st.write(f"🫀 Heart Failure - {severity_text}")
                         st.markdown(f"- **Target Css**: 0.8 ng/mL")
+                        st.markdown(f"- **Non-renal clearance (Clnr)**: {pk.get('digoxin_clnr', 'N/A')} mL/min")
                     else:
                         st.write(f"🫀 {pk['indication']}")
                         st.markdown(f"- **Target Css**: 1.2 ng/mL")
+                        st.markdown(f"- **Non-renal clearance (Clnr)**: {pk.get('digoxin_clnr', 'N/A')} mL/min")
                 
                 with doc_col2:
                     st.markdown("**Route & Bioavailability**")
@@ -1157,9 +1226,31 @@ with tab_docs:
                         st.write(f"💉 IV (F = 1.0)")
                         st.markdown(f"- **Bioavailability**: 100%")
                 
-                doc_col3, doc_col4 = st.columns(2)
+                # NEW: BMI / Weight / CrCl Decision Row
+                doc_col_bmi1, doc_col_bmi2 = st.columns(2)
                 
-                with doc_col3:
+                with doc_col_bmi1:
+                    st.markdown("**BMI & Weight Decision**")
+                    obese_status = "Obese (BMI > 25)" if pk.get('digoxin_is_obese') else "Non-obese (BMI ≤ 25)"
+                    st.write(f"📐 BMI: {pk['bmi']:.1f} → {obese_status}")
+                    st.markdown(f"- **Weight used**: {pk.get('digoxin_weight_label', 'N/A')} = {pk.get('digoxin_weight_used', 0):.1f} kg")
+                
+                with doc_col_bmi2:
+                    st.markdown("**CrCl Method**")
+                    st.write(f"🧪 {pk.get('digoxin_crcl_method', 'N/A')}")
+                    st.markdown(f"- **CrCl**: {pk.get('digoxin_crcl', 0):.1f} mL/min")
+                
+                # Dose Summary Row
+                doc_col_dose1, doc_col_dose2 = st.columns(2)
+                
+                with doc_col_dose1:
+                    st.markdown("**Dose Calculation**")
+                    st.markdown(f"- **Calculated MD**: {pk.get('digoxin_md_raw', 0):.1f} mcg/day")
+                    st.markdown(f"- **Rounded to market dose**: **{pk['md']} mcg/day**")
+                    st.markdown(f"- **Available doses**: 125 / 250 / 500 mcg")
+                    st.markdown(f"- **Dosing interval (τ)**: q24h (1 day)")
+                
+                with doc_col_dose2:
                     st.markdown("**Thyroid Status**")
                     if pk['thyroid_status'] == "Hyperthyroidism":
                         st.write(f"⚠️ {pk['thyroid_status']}")
@@ -1167,10 +1258,6 @@ with tab_docs:
                     else:
                         st.write(f"✅ {pk['thyroid_status']}")
                         st.markdown(f"- **Clearance Adjustment**: Normal")
-                
-                with doc_col4:
-                    st.markdown("**Calculation Type**")
-                    st.write(f"📊 {pk['calculation_type'].title()}")
             
             # Detailed recommendations based on parameters
             st.markdown("---")
