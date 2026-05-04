@@ -384,6 +384,48 @@ with tab_setup:
                 measured_procainamide = 0.0
                 measured_napa = 0.0
             
+            # ===== LIDOCAINE-SPECIFIC PARAMETERS =====
+            if selected_drug == "Lidocaine":
+                st.markdown("---")
+                st.subheader("🔧 Lidocaine-Specific Parameters")
+                with st.container(border=True):
+                    l_col1, l_col2 = st.columns(2)
+                    
+                    l_route = l_col1.radio(
+                        "Route of Administration",
+                        ["IV", "Oral", "IM"],
+                        horizontal=True,
+                        key="lidocaine_route"
+                    )
+                    
+                    # Set bioavailability based on route
+                    if l_route in ["IV", "IM"]:
+                        l_bioavailability = 1.0
+                    else:  # Oral
+                        l_bioavailability = 0.35
+                    
+                    l_col2.info(f"**Bioavailability (F):** {l_bioavailability}")
+                    
+                    l_col3, l_col4 = st.columns(2)
+                    
+                    l_liver_disease = l_col3.selectbox(
+                        "Liver Disease Severity",
+                        ["None", "Mild", "Moderate", "Severe"],
+                        help="Severe liver disease prolongs half-life and requires dose reduction",
+                        key="lidocaine_liver_disease"
+                    )
+                    
+                    # Show HF reminder
+                    if is_hf:
+                        l_col4.warning("⚠️ **CHF detected** — Half-life will be prolonged")
+                    else:
+                        l_col4.info("✅ No Heart Failure detected")
+            else:
+                # Initialize Lidocaine variables for non-Lidocaine drugs
+                l_route = None
+                l_bioavailability = 1.0
+                l_liver_disease = "None"
+            
             # Standard input for non-Digoxin, non-Procainamide drugs
             if calc_mode == "Initial regimen":
                 initial_method = st.selectbox(
@@ -706,14 +748,53 @@ with tab_results:
             if target_peak > 10.0: warnings.append("Procainamide target > 10 µg/mL is associated with toxicity.")
         elif selected_drug == 'Lidocaine':
             vd = (0.9 if is_hf else 1.1) * abw
-            cl = (6.0 if is_hf else 10.0) * abw * 60 / 1000
-            final_interval = 1
+            cl = (6.0 if is_hf else 10.0) * abw * 60 / 1000  # L/hr
+
+            # Half-life logic: prolonged in HF or Severe liver disease
+            l_is_prolonged = is_hf or l_liver_disease == "Severe"
+            if l_is_prolonged:
+                t_half = 4.0  # midpoint of >3-5 hours (prolonged)
+                t_half_range = ">3–5 hours (prolonged)"
+                t_half_reason = []
+                if is_hf: t_half_reason.append("Heart failure")
+                if l_liver_disease == "Severe": t_half_reason.append("Severe liver disease")
+                t_half_reason_str = " + ".join(t_half_reason)
+            else:
+                t_half = 1.75  # midpoint of 1.5-2 hours (normal)
+                t_half_range = "1.5–2 hours (normal)"
+                t_half_reason_str = ""
+
+            # Ke from t½
+            ke = 0.693 / t_half  # hr⁻¹
+
+            # Time to steady state
+            tss_min = 4 * t_half
+            tss_max = 5 * t_half
+
+            # Bioavailability
+            l_F = l_bioavailability
+
+            # LD and MD with F
+            final_interval = 1  # continuous infusion (1 hr)
+            if l_route == "Oral":
+                ld = None  # Oral loading not recommended
+                md = (cl * target_peak * final_interval) / l_F
+            else:
+                ld = (target_peak * vd) / l_F
+                md = (cl * target_peak * final_interval) / l_F
+
+            # Hepatic/renal dose adjustment flag
+            l_dose_reduce = is_hf or l_liver_disease == "Severe"
+
+            if md and md > 0: md = round(md, 2)
+            if ld and ld > 0: ld = round(ld, 2)
+
         elif selected_drug == 'Amiodarone':
             vd = 60 * abw
             cl = 0.12 * abw
             if interval == 0: final_interval = 24
             
-        if selected_drug != 'Digoxin':  # Digoxin handles its own ke/md/ld above
+        if selected_drug not in ['Digoxin', 'Lidocaine']:  # These handle their own ke/md/ld
             if cl and vd:
                 ke = cl / vd
                 t_half = 0.693 / ke
@@ -770,24 +851,101 @@ with tab_results:
         elif selected_drug == "Lidocaine":
             disp_vd = f"{vd:.1f} L"
             disp_cl = f"{cl:.2f} L/hr"
-            disp_thalf = f"{t_half:.1f} hours"
+            disp_thalf = f"{t_half_range}"
             
             # Dose limit check (Max ~ 240 mg/hr = 4 mg/min)
-            if md > 240:
+            if md and md > 240:
                 md = 240
                 validation_status = "🔴 Calculated dose exceeded maximum limit<br>✔ Auto-adjusted to safe maximum"
                 validation_title = "Auto-Adjusted"
                 validation_color = "alert-danger"
-            elif md >= 180:
+            elif md and md >= 180:
                 validation_status = "🟡 High therapeutic dose<br>Monitor closely"
                 validation_title = "Caution"
                 validation_color = "alert-warning"
 
-            maintenance_text = f"{md:.1f} mg/hr continuous infusion"
-            loading_text = f"{ld:,.0f} mg once" if ld > 0 else "None"
+            # Route-specific display
+            route_display = l_route if l_route else "IV"
+            if l_route == "Oral":
+                maintenance_text = f"{md:.1f} mg/hr (Oral, F={l_F})"
+                loading_text = "N/A (oral loading not recommended)"
+            else:
+                maintenance_text = f"{md:.1f} mg/hr continuous infusion ({route_display})"
+                loading_text = f"{ld:,.1f} mg" if ld and ld > 0 else "None"
             rec_dose_str = f"{md:.1f} mg/hr"
-            admin_str = "Continuous IV Infusion"
+            admin_str = f"{route_display} {'Continuous Infusion' if route_display == 'IV' else ''}"
             interval_str = "Continuous"
+
+            # === Lidocaine PK Summary Box ===
+            prolonged_html = ""
+            if l_is_prolonged:
+                prolonged_html = f"""
+                <p style="color:#ef4444; font-weight:600;">⚠️ Half-life prolonged due to: {t_half_reason_str}</p>
+                """
+            
+            hepatic_html = ""
+            if l_dose_reduce:
+                hepatic_html = f"""
+                <div style="background:rgba(239,68,68,0.1); padding:12px; border-radius:8px; border-left:4px solid #ef4444; margin-top:10px;">
+                    <p style="margin:0; font-weight:600; color:#ef4444;">⚠️ Hepatic impairment or heart failure detected</p>
+                    <p style="margin:5px 0 0 0;">→ Reduce lidocaine dose by 25–50%</p>
+                    <p style="margin:2px 0 0 0;">→ Monitor for toxicity</p>
+                </div>
+                """
+            
+            renal_html = ""
+            if crcl < 60:
+                renal_html = f"""
+                <div style="background:rgba(245,158,11,0.1); padding:12px; border-radius:8px; border-left:4px solid #f59e0b; margin-top:10px;">
+                    <p style="margin:0; font-weight:600; color:#f59e0b;">⚠️ Renal impairment (CrCl = {crcl:.1f} mL/min)</p>
+                    <p style="margin:5px 0 0 0;">• Parent drug: no major adjustment needed</p>
+                    <p style="margin:2px 0 0 0;">• Active metabolites (MEGX, GX): accumulate</p>
+                    <p style="margin:2px 0 0 0;">• Monitor for CNS toxicity</p>
+                </div>
+                """
+
+            st.markdown(f"""
+            <div class='alert-box alert-info'>
+                <p><strong>📊 Lidocaine PK Summary:</strong></p>
+                <p>• <strong>Route:</strong> {route_display} | <strong>F:</strong> {l_F}</p>
+                <p>• <strong>Half-life (t½):</strong> {t_half_range}</p>
+                {prolonged_html}
+                <p>• <strong>Elimination Rate Constant (k):</strong> {ke:.3f} hr⁻¹</p>
+                <p>• <strong>Time to Steady State:</strong> {tss_min:.1f} – {tss_max:.1f} hours (4–5 × t½)</p>
+                <hr style="opacity:0.2; margin:10px 0;">
+                <p><strong>💉 IV Infusion Equations:</strong></p>
+                <p>• Infusion Rate (mg/hr) = CL (L/hr) × Css (µg/mL) = {cl:.2f} × {target_peak:.1f} = {cl * target_peak:.2f} mg/hr</p>
+                <p>• During infusion: C = Css × (1 − e<sup>−k×t</sup>)</p>
+                <p>• After stopping: C = Css × e<sup>−k×t</sup></p>
+                {hepatic_html}
+                {renal_html}
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Toxicity Management Box
+            st.markdown(f"""
+            <div style="background:rgba(239,68,68,0.08); padding:16px; border-radius:10px; border-left:5px solid #ef4444; margin:15px 0;">
+                <p style="margin:0 0 8px 0; font-weight:700; font-size:1.05em; color:#ef4444;">🚨 Severe Toxicity Management Protocol</p>
+                <p style="margin:3px 0;">1. → Stop lidocaine immediately</p>
+                <p style="margin:3px 0;">2. → Benzodiazepines for seizures</p>
+                <p style="margin:3px 0;">3. → IV fluids ± vasopressors for cardiac depression</p>
+                <p style="margin:3px 0;">4. → Airway support + ICU care</p>
+                <p style="margin:3px 0;">5. → Lipid emulsion therapy in severe systemic toxicity</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Final Core Rules
+            st.markdown(f"""
+            <div style="background:var(--secondary-background-color); padding:16px; border-radius:10px; border-left:5px solid #6366f1; margin:15px 0;">
+                <p style="margin:0 0 8px 0; font-weight:700; font-size:1.05em; color:#6366f1;">📋 Final Core Rules for Lidocaine</p>
+                <p style="margin:3px 0;">1. Always assess hepatic function first</p>
+                <p style="margin:3px 0;">2. Clearance depends on liver blood flow</p>
+                <p style="margin:3px 0;">3. Renal impairment affects metabolites (secondary but important)</p>
+                <p style="margin:3px 0;">4. Monitor neurological symptoms early</p>
+                <p style="margin:3px 0;">5. Toxicity may appear clinically before lab levels</p>
+                <p style="margin:3px 0;">6. Liver disease & heart failure = highest risk</p>
+            </div>
+            """, unsafe_allow_html=True)
             
         elif selected_drug == "Procainamide":
             disp_vd = f"{vd:.1f} L"
@@ -995,12 +1153,17 @@ with tab_results:
             ]
         elif selected_drug == "Lidocaine":
             risk_flags.append("⚠ CNS toxicity risk at high serum levels")
-            risk_flags.append("⚠ Highly dependent on hepatic clearance")
+            risk_flags.append("⚠ Highly dependent on hepatic clearance (liver blood flow)")
+            if is_hf: risk_flags.append("⚠ Heart failure → reduced hepatic blood flow → prolonged t½")
+            if l_liver_disease == "Severe": risk_flags.append("⚠ Severe liver disease → prolonged t½, dose reduction required")
+            if crcl < 60: risk_flags.append("⚠ Renal impairment → MEGX/GX metabolite accumulation")
             monitoring_points = [
                 f"Serum lidocaine level (target 1.5–5.0 µg/mL)",
-                "CNS toxicity (confusion, seizures)",
-                "Neuro monitoring",
-                "Continuous ECG monitoring"
+                "Hepatic function assessment (LFTs, liver blood flow)",
+                "CNS toxicity signs (perioral numbness, confusion, seizures)",
+                "Cardiovascular monitoring (continuous ECG)",
+                "Active metabolites: MEGX, GX (accumulate in renal impairment)",
+                "Neurological symptoms monitoring (early toxicity indicator)"
             ]
         elif selected_drug == "Procainamide":
             risk_flags.append("⚠ Monitor for active NAPA metabolite")
